@@ -1,14 +1,19 @@
 package com.example.core.navigation
 
+import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.navigation.compose.ComposeNavigator
 import androidx.navigation.testing.TestNavHostController
 import androidx.test.core.app.ApplicationProvider
+import com.example.data.local.datastore.AppSettingsManager
 import com.example.feature.library.LibraryScreenContent
 import com.example.feature.library.LibraryUiState
+import com.example.tts.EdgeTtsEngine
+import com.example.tts.KokoroNativeEngine
 import com.example.tts.TtsManager
+import dagger.Lazy
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -16,6 +21,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+@OptIn(ExperimentalSharedTransitionApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [34])
 class NavigationTest {
@@ -24,9 +30,16 @@ class NavigationTest {
     val composeTestRule = createComposeRule()
 
     @Test
-    fun appNavigatesToOnboardingFromSplash() {
+    fun appStartsAtSplash() {
         lateinit var navController: TestNavHostController
-        val ttsManager = TtsManager(ApplicationProvider.getApplicationContext())
+        val unusedNativeEngine = object : Lazy<KokoroNativeEngine> {
+            override fun get(): KokoroNativeEngine = error("This navigation test does not synthesize speech")
+        }
+        val unusedEdgeEngine = object : Lazy<EdgeTtsEngine> {
+            override fun get(): EdgeTtsEngine = error("This navigation test does not synthesize speech")
+        }
+        val appSettingsManager = AppSettingsManager(ApplicationProvider.getApplicationContext())
+        val ttsManager = TtsManager(ApplicationProvider.getApplicationContext(), unusedNativeEngine, unusedEdgeEngine, appSettingsManager)
 
         composeTestRule.setContent {
             navController = TestNavHostController(ApplicationProvider.getApplicationContext())

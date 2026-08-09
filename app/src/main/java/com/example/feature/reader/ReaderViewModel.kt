@@ -67,6 +67,7 @@ class ReaderViewModel @Inject constructor(
                         isTtsPreparing = ttsState.isPreparing,
                         currentSentenceIndex = ttsState.currentSentenceIndex,
                         ttsRate = ttsState.speechRate,
+                        ttsEngineId = ttsState.engineId,
                         ttsErrorMessage = ttsState.errorMessage,
                         sleepTimerMinutes = ttsState.sleepTimerMinutes
                     )

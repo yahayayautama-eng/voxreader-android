@@ -85,6 +85,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.core.ui.components.ErrorState
 import com.example.core.ui.components.LoadingState
 import com.example.domain.repository.Highlight
+import com.example.tts.EngineId
 import com.example.ui.theme.Carbon
 import com.example.ui.theme.HighlightColor
 import com.example.ui.theme.Canvas
@@ -771,13 +772,14 @@ fun ReaderTtsBottomBar(
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
+                    val engineLabel = if (uiState.ttsEngineId == EngineId.EDGE) "Edge TTS" else "Offline voice"
                     Text(
                         text = when {
-                            uiState.isTtsPlaying -> "Offline voice · sentence ${uiState.currentSentenceIndex + 1}"
+                            uiState.isTtsPlaying -> "$engineLabel · sentence ${uiState.currentSentenceIndex + 1}"
                             uiState.isTtsPaused -> "Speech paused"
-                            uiState.isTtsPreparing -> "Preparing offline voice…"
+                            uiState.isTtsPreparing -> "Preparing $engineLabel…"
                             uiState.ttsErrorMessage != null -> uiState.ttsErrorMessage
-                            else -> "Offline voice ready"
+                            else -> "$engineLabel ready"
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = textColor.copy(alpha = 0.8f)

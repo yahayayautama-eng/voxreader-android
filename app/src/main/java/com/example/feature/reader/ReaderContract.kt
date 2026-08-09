@@ -3,6 +3,7 @@ package com.example.feature.reader
 import com.example.domain.repository.Book
 import com.example.domain.repository.Chapter
 import com.example.domain.repository.Highlight
+import com.example.tts.EngineId
 
 enum class ReaderTheme {
     LIGHT, DARK, SEPIA, NIGHT
@@ -21,6 +22,7 @@ data class ReaderUiState(
     val currentSentenceIndex: Int = 0,
     val ttsRate: Float = 1.0f,
     val ttsVoice: String = "default",
+    val ttsEngineId: EngineId = EngineId.OFFLINE,
     val ttsPitch: Float = 1.0f,
     val isPlayerExpanded: Boolean = false,
     val sleepTimerMinutes: Int? = null,

@@ -238,9 +238,9 @@ class EdgeTtsEngine @Inject constructor(
         const val VOICE_LIST_URL = "https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list"
         const val SYNTHESIS_URL = "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1"
         const val ORIGIN = "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold"
-        const val GEC_VERSION = "1-130.0.2849.68"
+        const val GEC_VERSION = "1-143.0.3650.75"
         const val USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
-            "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36 Edg/130.0.0.0"
+            "(KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0"
         const val SYNTHESIS_TIMEOUT_MS = 15_000L
     }
 }
