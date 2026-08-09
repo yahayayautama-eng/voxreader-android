@@ -149,6 +149,15 @@ class TtsManager @Inject constructor(
         }
     }
 
+    /** Uses the retained chapter snapshot to replay after completion or a recoverable TTS error. */
+    fun togglePlayback() {
+        when {
+            _state.value.isSpeaking -> pause()
+            _state.value.isPaused -> resume()
+            currentSentences.isNotEmpty() -> speakSentences(currentSentences, _state.value.currentSentenceIndex)
+        }
+    }
+
     fun stop() {
         ++playbackGeneration
         stopPlayer()

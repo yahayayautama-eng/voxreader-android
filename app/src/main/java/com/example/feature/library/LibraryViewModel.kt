@@ -19,7 +19,7 @@ class LibraryViewModel @Inject constructor(
 
     private val _selectedCategory = MutableStateFlow("All")
     private val _searchQuery = MutableStateFlow("")
-    private val _isGridView = MutableStateFlow(true)
+    private val _isGridView = MutableStateFlow(false)
     private val _uiState = MutableStateFlow<LibraryUiState>(LibraryUiState.Loading)
     val uiState: StateFlow<LibraryUiState> = _uiState.asStateFlow()
 
@@ -36,6 +36,11 @@ class LibraryViewModel @Inject constructor(
                 _isGridView
             ) { books, category, query, isGridView ->
                 var filtered = books
+                val categories = listOf("All", "Favorites") + books
+                    .map { it.genre.trim() }
+                    .filter { it.isNotEmpty() }
+                    .distinctBy { it.lowercase() }
+                    .sortedBy { it.lowercase() }
 
                 if (category == "Favorites") {
                     filtered = filtered.filter { it.isFavorite }
@@ -50,7 +55,13 @@ class LibraryViewModel @Inject constructor(
                     }
                 }
                 
-                val recent = filtered.take(2)
+                val recent = filtered
+                    .filter { it.currentChapterIndex > 0 || it.currentPosition > 0 }
+                    .sortedWith(
+                        compareByDescending<com.example.domain.repository.Book> { it.currentChapterIndex }
+                            .thenByDescending { it.currentPosition }
+                    )
+                    .take(2)
                 val all = filtered
 
                 if (books.isEmpty()) {
@@ -60,6 +71,7 @@ class LibraryViewModel @Inject constructor(
                         recentBooks = recent,
                         allBooks = all,
                         isGridView = isGridView,
+                        categories = categories,
                         selectedCategory = category,
                         searchQuery = query
                     )

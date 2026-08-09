@@ -3,6 +3,7 @@ package com.example.core.navigation
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.navigation.compose.ComposeNavigator
 import androidx.navigation.testing.TestNavHostController
@@ -31,6 +32,7 @@ class NavigationTest {
 
     @Test
     fun appStartsAtSplash() {
+        composeTestRule.mainClock.autoAdvance = false
         lateinit var navController: TestNavHostController
         val unusedNativeEngine = object : Lazy<KokoroNativeEngine> {
             override fun get(): KokoroNativeEngine = error("This navigation test does not synthesize speech")
@@ -47,9 +49,8 @@ class NavigationTest {
             VoxLeafNavGraph(ttsManager = ttsManager, navController = navController)
         }
 
-        composeTestRule.waitForIdle()
-
         // Splash screen is start destination
+        composeTestRule.onNodeWithTag("splash_screen").assertExists()
         assertEquals(Screen.Splash::class.qualifiedName, navController.currentDestination?.route)
     }
 
@@ -62,7 +63,7 @@ class NavigationTest {
             )
         }
 
-        composeTestRule.onNodeWithContentDescription("Loading").assertExists()
+        composeTestRule.onNodeWithContentDescription("Loading your library").assertExists()
     }
 
     @Test
@@ -74,6 +75,6 @@ class NavigationTest {
             )
         }
 
-        composeTestRule.onNodeWithText("Library is empty").assertExists()
+        composeTestRule.onNodeWithText("Build your shelf").assertExists()
     }
 }

@@ -8,7 +8,7 @@ sealed interface LibraryUiState {
         val recentBooks: List<Book> = emptyList(),
         val allBooks: List<Book> = emptyList(),
         val isGridView: Boolean = true,
-        val categories: List<String> = listOf("All", "Favorites", "Fiction", "Classic", "Mystery"),
+        val categories: List<String> = listOf("All", "Favorites"),
         val selectedCategory: String = "All",
         val searchQuery: String = ""
     ) : LibraryUiState

@@ -1,7 +1,9 @@
 package com.example.feature.search
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,8 +18,8 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Clear
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,14 +36,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.example.core.ui.components.BookSpine
 import com.example.core.ui.components.EmptyState
 import com.example.domain.repository.Book
 import com.example.domain.repository.BookRepository
-import com.example.feature.library.BookCard
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -82,6 +85,7 @@ class SearchViewModel @Inject constructor(
 }
 
 @Composable
+@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 fun SearchScreen(
     onNavigateToBook: (String) -> Unit,
     viewModel: SearchViewModel = hiltViewModel()
@@ -97,25 +101,30 @@ fun SearchScreen(
             .padding(16.dp)
     ) {
         Text(
-            text = "Search Library",
-            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-            modifier = Modifier.padding(bottom = 12.dp)
+            text = "Find a page",
+            fontFamily = com.example.ui.theme.VoxLeafSerif,
+            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+            fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold,
+            fontSize = 28.sp,
+            color = MaterialTheme.colorScheme.onBackground,
+            modifier = Modifier.padding(bottom = 16.dp)
         )
 
         // Search Input
         OutlinedTextField(
             value = searchQuery,
             onValueChange = viewModel::onQueryChange,
-            placeholder = { Text("Search by title, author, or genre...") },
-            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            placeholder = { Text("Title, author, or subject") },
+            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
             trailingIcon = if (searchQuery.isNotEmpty()) {
                 {
                     IconButton(onClick = { viewModel.onQueryChange("") }) {
-                        Icon(Icons.Default.Clear, contentDescription = "Clear")
+                        Icon(Icons.Outlined.Close, contentDescription = "Clear")
                     }
                 }
             } else null,
             singleLine = true,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .testTag("search_screen_input")
@@ -140,22 +149,29 @@ fun SearchScreen(
 
         if (searchResults.isEmpty()) {
             EmptyState(
-                message = if (searchQuery.isBlank()) "Type a keyword above to discover books" else "No matching books found for '$searchQuery'",
-                icon = Icons.Default.Search,
+                message = if (searchQuery.isBlank()) "Search across your private library" else "No documents match '$searchQuery'",
+                icon = Icons.Outlined.Search,
                 modifier = Modifier.weight(1f)
             )
         } else {
             LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                columns = GridCells.Adaptive(minSize = 104.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.weight(1f)
             ) {
                 items(searchResults, key = { it.id }) { book ->
-                    BookCard(
-                        book = book,
-                        onClick = { onNavigateToBook(book.id) },
-                        onFavoriteToggle = { viewModel.toggleFavorite(book.id) }
+                    BookSpine(
+                        title = book.title,
+                        bookId = book.id,
+                        coverPath = book.coverImagePath,
+                        progress = if (book.totalChapters > 0) {
+                            (book.currentChapterIndex.toFloat() / book.totalChapters).coerceIn(0f, 1f)
+                        } else 0f,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .aspectRatio(2f / 3f)
+                            .clickable { onNavigateToBook(book.id) }
                     )
                 }
             }

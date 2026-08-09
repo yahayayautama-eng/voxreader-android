@@ -1,8 +1,10 @@
 package com.example.feature.importbook
 
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.domain.usecase.ImportScannedBookUseCase
 import com.example.domain.usecase.ImportState
 import com.example.domain.usecase.ImportTextBookUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -14,10 +16,14 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ImportViewModel @Inject constructor(
-    private val importTextBook: ImportTextBookUseCase
+    private val importTextBook: ImportTextBookUseCase,
+    private val importScannedBook: ImportScannedBookUseCase
 ) : ViewModel() {
     private val _importState = MutableStateFlow<ImportState>(ImportState.Idle)
     val importState: StateFlow<ImportState> = _importState.asStateFlow()
+
+    private val _capturedPages = MutableStateFlow<List<Bitmap>>(emptyList())
+    val capturedPages: StateFlow<List<Bitmap>> = _capturedPages.asStateFlow()
 
     fun importBook(uri: Uri) {
         viewModelScope.launch {
@@ -25,7 +31,23 @@ class ImportViewModel @Inject constructor(
         }
     }
 
+    fun addScannedPage(bitmap: Bitmap) {
+        _capturedPages.value = _capturedPages.value + bitmap
+    }
+
+    fun clearScannedPages() {
+        _capturedPages.value = emptyList()
+    }
+
+    fun finishScan(title: String) {
+        val pages = _capturedPages.value
+        viewModelScope.launch {
+            importScannedBook(pages, title).collect { _importState.value = it }
+        }
+    }
+
     fun resetState() {
         _importState.value = ImportState.Idle
+        _capturedPages.value = emptyList()
     }
 }

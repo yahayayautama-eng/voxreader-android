@@ -4,7 +4,7 @@ import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 
-const val MAX_TEXT_IMPORT_BYTES = 20L * 1024 * 1024
+const val MAX_TEXT_IMPORT_BYTES = 100L * 1024 * 1024
 
 class TextImportTooLargeException : IOException()
 

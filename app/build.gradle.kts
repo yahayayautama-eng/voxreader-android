@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.kotlin.compose)
@@ -7,24 +9,52 @@ plugins {
   alias(libs.plugins.kotlin.serialization)
 }
 
+val keystoreProps = Properties().apply {
+  val propsFile = rootProject.file("keystore.properties")
+  if (propsFile.exists()) propsFile.inputStream().use { load(it) }
+}
+
 android {
   namespace = "com.example"
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.voxleaf.xyz"
+    applicationId = "com.aistudio.voxreader.xyz"
     minSdk = 26
     targetSdk = 36
     versionCode = 1
     versionName = "1.0"
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+    ndk {
+      abiFilters += "arm64-v8a"
+    }
+  }
+
+  ndkVersion = "27.2.12479018"
+
+  signingConfigs {
+    if (!keystoreProps.isEmpty) {
+      create("release") {
+        storeFile = file(keystoreProps.getProperty("storeFile"))
+        storePassword = keystoreProps.getProperty("storePassword")
+        keyAlias = keystoreProps.getProperty("keyAlias")
+        keyPassword = keystoreProps.getProperty("keyPassword")
+      }
+    }
   }
 
   buildTypes {
+    debug {
+      applicationIdSuffix = ".debug"
+      versionNameSuffix = "-debug"
+    }
     release {
       isCrunchPngs = false
-      isMinifyEnabled = false
+      isMinifyEnabled = true
+      isShrinkResources = true
+      signingConfig = signingConfigs.findByName("release")
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
     }
   }
@@ -35,6 +65,12 @@ android {
   buildFeatures {
     compose = true
     buildConfig = true
+  }
+  externalNativeBuild {
+    cmake {
+      path = file("src/main/cpp/CMakeLists.txt")
+      version = "3.31.6"
+    }
   }
   testOptions {
     unitTests {
@@ -48,6 +84,20 @@ android {
     includeInApk = false
     includeInBundle = true
   }
+  packaging {
+    jniLibs {
+      useLegacyPackaging = false
+    }
+  }
+  sourceSets {
+    getByName("androidTest") {
+      assets.srcDir("$projectDir/schemas")
+    }
+  }
+}
+
+ksp {
+  arg("room.schemaLocation", "$projectDir/schemas")
 }
 
 dependencies {
@@ -72,6 +122,10 @@ dependencies {
   implementation(libs.hilt.android)
   implementation(libs.androidx.hilt.navigation.compose)
   implementation(libs.kotlinx.serialization.json)
+  implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+  implementation("com.google.mlkit:text-recognition:16.0.1")
+  // WebSocket client for the Edge TTS online voice engine.
+  implementation("com.squareup.okhttp3:okhttp:4.12.0")
   "ksp"(libs.hilt.compiler)
   "ksp"(libs.androidx.room.compiler)
   testImplementation(libs.androidx.compose.ui.test.junit4)
@@ -90,6 +144,7 @@ dependencies {
   androidTestImplementation(libs.androidx.espresso.core)
   androidTestImplementation(libs.androidx.junit)
   androidTestImplementation(libs.androidx.runner)
+  androidTestImplementation(libs.androidx.room.testing)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
   debugImplementation(libs.androidx.compose.ui.tooling)
 }

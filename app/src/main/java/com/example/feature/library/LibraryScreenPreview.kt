@@ -5,6 +5,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.example.domain.repository.Book
 import com.example.ui.theme.MyApplicationTheme
 
+@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true)
 @Composable
 fun LibraryScreenSuccessPreview() {
@@ -21,6 +22,7 @@ fun LibraryScreenSuccessPreview() {
     }
 }
 
+@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true)
 @Composable
 fun LibraryScreenEmptyPreview() {
@@ -32,6 +34,7 @@ fun LibraryScreenEmptyPreview() {
     }
 }
 
+@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true)
 @Composable
 fun LibraryScreenLoadingPreview() {
@@ -43,6 +46,7 @@ fun LibraryScreenLoadingPreview() {
     }
 }
 
+@OptIn(androidx.compose.animation.ExperimentalSharedTransitionApi::class)
 @Preview(showBackground = true)
 @Composable
 fun LibraryScreenErrorPreview() {

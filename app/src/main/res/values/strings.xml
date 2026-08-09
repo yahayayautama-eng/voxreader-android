@@ -1,8 +1,6 @@
 <resources>
-    <string name="app_name">VoxLeaf</string>
+    <string name="app_name">Vox Reader</string>
     <string name="title_splash">Splash</string>
-    <string name="title_onboarding">Onboarding</string>
-    <string name="title_model_setup">Model Setup</string>
     <string name="title_library">Library</string>
     <string name="title_import">Import</string>
     <string name="title_book_details">Book Details</string>

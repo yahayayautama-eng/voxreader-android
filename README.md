@@ -1,6 +1,6 @@
-# VoxLeaf
+# Vox Reader
 
-Stage 1 baseline for the VoxLeaf native Android application: an offline, local
+Stage 1 baseline for the Vox Reader native Android application: an offline, local
 library with plain-text (`.txt`) import.
 
 ## Architecture

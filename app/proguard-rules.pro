@@ -1,21 +1,31 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# VoxLeaf release ProGuard/R8 rules.
+# Hilt and Room ship their own consumer rules — not duplicated here.
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+-keepattributes SourceFile,LineNumberTable,*Annotation*,Signature,InnerClasses,EnclosingMethod
+-renamesourcefileattribute SourceFile
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# JNI — kotlinNativeEngine's external functions are called by their mangled
+# Java_com_example_tts_KokoroNativeEngine_* symbol names from kokoro_bridge.cpp.
+-keep class com.example.tts.KokoroNativeEngine {
+    native <methods>;
+}
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# kotlinx.serialization — Navigation Compose type-safe routes (Screen sealed
+# interface) are (de)serialized by class name; VoxLeafApp.kt also matches
+# routes against Screen::class.qualifiedName.
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.**
+-keep,includedescriptorclasses class com.example.core.navigation.**$$serializer { *; }
+-keepclassmembers class com.example.core.navigation.** {
+    *** Companion;
+}
+-keepclasseswithmembers class com.example.core.navigation.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
+
+# pdfbox-android + fontbox: reflection-heavy, bundles its own resources.
+-keep class com.tom_roush.pdfbox.** { *; }
+-keep class com.tom_roush.fontbox.** { *; }
+-dontwarn com.tom_roush.**
+-dontwarn org.bouncycastle.**
+-dontwarn javax.**

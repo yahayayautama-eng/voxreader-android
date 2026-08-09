@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -35,15 +35,15 @@ fun AboutScreen() {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                Icons.AutoMirrored.Filled.MenuBook,
+                Icons.Outlined.AutoStories,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(36.dp)
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column {
-                Text("VoxLeaf Reader", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
-                Text("Version 1.0.0 (Native Android Build)", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Vox Reader", style = MaterialTheme.typography.headlineSmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Serif))
+                Text("Private document reading, with a local voice.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -63,7 +63,7 @@ fun AboutScreen() {
                 Text("• Architecture: MVVM with Unidirectional Data Flow")
                 Text("• Dependency Injection: Dagger Hilt")
                 Text("• Persistence: Room Database + Kotlin Coroutines & Flow")
-                Text("• Audio Speech Engine: Android TextToSpeech & UtteranceProgress")
+                Text("• Audio Speech Engine: kittenTTS via bundled Babylon.cpp (fully offline)")
             }
         }
     }

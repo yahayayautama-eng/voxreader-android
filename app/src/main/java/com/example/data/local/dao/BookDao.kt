@@ -52,6 +52,24 @@ interface BookDao {
     @Query("UPDATE reading_progress SET currentChapterIndex = :chapterIndex, currentPosition = :position, lastUpdatedAt = :updatedAt WHERE bookId = :bookId")
     suspend fun updateReadingProgress(bookId: String, chapterIndex: Int, position: Int, updatedAt: Long = System.currentTimeMillis())
 
+    @Query("UPDATE books SET title = :title, author = :author, description = :description, genre = :genre WHERE id = :bookId")
+    suspend fun updateBookMetadata(
+        bookId: String,
+        title: String,
+        author: String,
+        description: String,
+        genre: String
+    )
+
+    @Query("SELECT sourceFilePath FROM books WHERE id = :bookId")
+    suspend fun getSourceFilePath(bookId: String): String?
+
+    @Query("DELETE FROM sections WHERE bookId = :bookId")
+    suspend fun deleteSectionsForBook(bookId: String)
+
+    @Query("UPDATE books SET totalChapters = :count WHERE id = :bookId")
+    suspend fun updateTotalChapters(bookId: String, count: Int)
+
     @androidx.room.Query("DELETE FROM books WHERE id = :bookId")
     suspend fun deleteBook(bookId: String)
 }

@@ -71,10 +71,7 @@ class GlobalPlayerViewModel @Inject constructor(
 
     val state = ttsManager.state
 
-    fun playPause() {
-        val current = state.value
-        if (current.isSpeaking) ttsManager.pause() else if (current.isPaused) ttsManager.resume()
-    }
+    fun playPause() = ttsManager.togglePlayback()
 
     fun skip(delta: Int) = ttsManager.skip(delta)
 

@@ -1,6 +1,6 @@
 {
-  "name": "VoxLeaf",
-  "description": "Stage 1 local TXT library baseline for VoxLeaf native Android",
+  "name": "Vox Reader",
+  "description": "Stage 1 local TXT library baseline for Vox Reader native Android",
   "requestFramePermissions": [],
   "majorCapabilities": []
 }

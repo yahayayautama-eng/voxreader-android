@@ -17,3 +17,23 @@ local.properties
 .env
 debug.keystore
 .tooling/
+/.claude/
+
+# Release signing — never commit the keystore or its credentials.
+keystore.properties
+*.jks
+*.keystore
+
+# Vendored babylon.cpp source tree is 2.2 GB; only the two include dirs
+# CMakeLists.txt actually needs at compile time are kept. The prebuilt
+# .so files it links against live in jniLibs/ (NOT ignored — there is no
+# build step in this repo that regenerates them).
+/app/src/main/cpp/third_party/*
+!/app/src/main/cpp/third_party/babylon/
+/app/src/main/cpp/third_party/babylon/*
+!/app/src/main/cpp/third_party/babylon/include/
+!/app/src/main/cpp/third_party/babylon/submodules/
+/app/src/main/cpp/third_party/babylon/submodules/*
+!/app/src/main/cpp/third_party/babylon/submodules/onnxruntime/
+/app/src/main/cpp/third_party/babylon/submodules/onnxruntime/*
+!/app/src/main/cpp/third_party/babylon/submodules/onnxruntime/include/
