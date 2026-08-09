@@ -31,6 +31,7 @@ object MobiParser {
     )
 
     private const val MAX_RECORDS = 65_536
+    private const val MAX_DECOMPRESSED_TEXT_BYTES = 50 * 1024 * 1024
 
     fun parse(file: File): MobiResult {
         val bytes = try {
@@ -66,7 +67,7 @@ object MobiParser {
         val decompress = decompressorFor(active, palm, start)
         // Every text record decompresses independently, but the markup runs across their seams, so
         // the book is reassembled into one byte stream before anything is parsed out of it.
-        val assembled = ByteBuf()
+        val assembled = ByteBuf(maxSize = MAX_DECOMPRESSED_TEXT_BYTES)
         for (index in 1..active.numTextRecords) {
             val recordIndex = start + index
             if (recordIndex >= palm.recordCount) break
@@ -225,7 +226,7 @@ object MobiParser {
     private fun decompressorFor(headers: Headers, palm: PalmDb, start: Int): (ByteArray) -> ByteArray =
         when (headers.compression) {
             1 -> { raw -> raw }
-            2 -> ::decompressPalmDoc
+            2 -> { raw -> decompressPalmDoc(raw) }
             17480 -> huffCdicDecompressor(headers, palm, start)
             else -> throw ParseException("This Kindle book uses an unsupported compression format.")
         }
@@ -234,8 +235,11 @@ object MobiParser {
      * PalmDOC LZ77. Byte values select between literals, a run of literals, a back-reference into
      * what has already been written, and the "space plus character" shorthand.
      */
-    internal fun decompressPalmDoc(input: ByteArray): ByteArray {
-        val out = ByteBuf()
+    internal fun decompressPalmDoc(
+        input: ByteArray,
+        maxOutputBytes: Int = MAX_DECOMPRESSED_TEXT_BYTES
+    ): ByteArray {
+        val out = ByteBuf(maxSize = maxOutputBytes)
         var i = 0
         while (i < input.size) {
             val byte = input[i].toInt() and 0xFF
@@ -294,6 +298,8 @@ object MobiParser {
 
         val dictValues = ArrayList<ByteArray>()
         val dictExpanded = ArrayList<Boolean>()
+        val dictExpanding = ArrayList<Boolean>()
+        var dictionaryBytes = 0L
         for (i in 1 until headers.numHuffcdic) {
             val record = palm.record(start + headers.huffcdic + i)
             if (record.size < 16 || string(record, 0, 4) != "CDIC") {
@@ -302,6 +308,9 @@ object MobiParser {
             val cdicLength = u32(record, 4).toInt()
             val numEntries = u32(record, 8).toInt()
             val codeLength = u32(record, 12).toInt()
+            if (codeLength !in 0..20 || numEntries < dictValues.size) {
+                throw ParseException("Kindle book has invalid CDIC dictionary metadata.")
+            }
             // `numEntries` counts the whole dictionary, so this record holds only part of it.
             val n = minOf(1 shl codeLength, numEntries - dictValues.size)
             val body = record.copyOfRange(cdicLength.coerceIn(0, record.size), record.size)
@@ -314,11 +323,16 @@ object MobiParser {
                 val end = (offset + 2 + length).coerceAtMost(body.size)
                 dictValues += body.copyOfRange(offset + 2, end)
                 dictExpanded += (x and 0x8000) != 0
+                dictExpanding += false
+                dictionaryBytes += (end - offset - 2)
+                if (dictionaryBytes > MAX_DECOMPRESSED_TEXT_BYTES) {
+                    throw ParseException("Kindle book expands beyond the supported text size.")
+                }
             }
         }
 
         fun decompress(input: ByteArray): ByteArray {
-            val out = ByteBuf()
+            val out = ByteBuf(maxSize = MAX_DECOMPRESSED_TEXT_BYTES)
             val bitLength = input.size.toLong() * 8
             var i = 0L
             while (i < bitLength) {
@@ -339,7 +353,19 @@ object MobiParser {
                 val code = (value - (bits ushr (32 - codeLength))).toInt()
                 if (code !in dictValues.indices) break
                 if (!dictExpanded[code]) {
-                    dictValues[code] = decompress(dictValues[code])
+                    if (dictExpanding[code]) throw ParseException("Kindle book has a cyclic HUFF dictionary.")
+                    dictExpanding[code] = true
+                    val oldSize = dictValues[code].size
+                    val expanded = try {
+                        decompress(dictValues[code])
+                    } finally {
+                        dictExpanding[code] = false
+                    }
+                    dictionaryBytes += expanded.size - oldSize
+                    if (dictionaryBytes > MAX_DECOMPRESSED_TEXT_BYTES) {
+                        throw ParseException("Kindle book expands beyond the supported text size.")
+                    }
+                    dictValues[code] = expanded
                     dictExpanded[code] = true
                 }
                 out.append(dictValues[code])
@@ -437,8 +463,8 @@ object MobiParser {
     // ---- Byte helpers -----------------------------------------------------------------------
 
     /** Growable byte buffer that also allows reading back what was written, for LZ77 references. */
-    private class ByteBuf(initial: Int = 8192) {
-        private var buffer = ByteArray(initial)
+    private class ByteBuf(initial: Int = 8192, private val maxSize: Int = MAX_DECOMPRESSED_TEXT_BYTES) {
+        private var buffer = ByteArray(minOf(initial, maxSize.coerceAtLeast(1)))
         var size = 0
             private set
 
@@ -448,6 +474,7 @@ object MobiParser {
         }
 
         fun append(bytes: ByteArray) {
+            if (bytes.size > maxSize - size) tooLarge()
             ensure(size + bytes.size)
             bytes.copyInto(buffer, size)
             size += bytes.size
@@ -458,11 +485,15 @@ object MobiParser {
         fun toByteArray(): ByteArray = buffer.copyOfRange(0, size)
 
         private fun ensure(capacity: Int) {
+            if (capacity < 0 || capacity > maxSize) tooLarge()
             if (capacity <= buffer.size) return
             var next = buffer.size * 2
-            while (next < capacity) next *= 2
+            while (next < capacity) next = minOf(maxSize, next * 2)
             buffer = buffer.copyOf(next)
         }
+
+        private fun tooLarge(): Nothing =
+            throw ParseException("Kindle book expands beyond the supported text size.")
     }
 
     private fun charsetOrLatin1(name: String) = try {

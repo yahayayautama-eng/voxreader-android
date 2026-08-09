@@ -66,7 +66,7 @@ fun ImportScreen(
         pendingCaptureFile = null
         if (success && file != null) {
             scope.launch(Dispatchers.IO) {
-                val bitmap = decodeSampledBitmap(file, maxDimension = 2000)
+                val bitmap = decodeSampledBitmap(file, maxDimension = 1600)
                 file.delete()
                 if (bitmap != null) {
                     withContext(Dispatchers.Main) { viewModel.addScannedPage(bitmap) }
@@ -169,13 +169,21 @@ fun ImportScreen(
                                 singleLine = true,
                                 modifier = Modifier.fillMaxWidth().testTag("scan_title_input")
                             )
-                            Button(
-                                onClick = { launchCamera() },
-                                modifier = Modifier.fillMaxWidth().testTag("scan_add_page_button")
-                            ) {
-                                Icon(Icons.Outlined.CameraAlt, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Add another page")
+                            if (capturedPages.size < ImportViewModel.MAX_SCANNED_PAGES) {
+                                Button(
+                                    onClick = { launchCamera() },
+                                    modifier = Modifier.fillMaxWidth().testTag("scan_add_page_button")
+                                ) {
+                                    Icon(Icons.Outlined.CameraAlt, contentDescription = null)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text("Add another page")
+                                }
+                            } else {
+                                Text(
+                                    "Maximum ${ImportViewModel.MAX_SCANNED_PAGES} pages per scan.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
                             }
                             Button(
                                 onClick = { viewModel.finishScan(scanTitle) },

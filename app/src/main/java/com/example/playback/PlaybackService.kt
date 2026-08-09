@@ -139,7 +139,7 @@ class PlaybackService : Service() {
             .setOngoing(state.isSpeaking || state.isPreparing)
             .addAction(action(android.R.drawable.ic_media_previous, "Previous", ACTION_PREV))
             .addAction(
-                if (state.isSpeaking) action(android.R.drawable.ic_media_pause, "Pause", ACTION_TOGGLE)
+                if (state.isSpeaking || state.isPreparing) action(android.R.drawable.ic_media_pause, "Pause", ACTION_TOGGLE)
                 else action(android.R.drawable.ic_media_play, "Play", ACTION_TOGGLE)
             )
             .addAction(action(android.R.drawable.ic_media_next, "Next", ACTION_NEXT))

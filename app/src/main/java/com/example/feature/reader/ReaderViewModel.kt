@@ -36,6 +36,7 @@ class ReaderViewModel @Inject constructor(
     private var sentences: List<String> = emptyList()
     private var highlightsJob: Job? = null
     private var allHighlights: List<Highlight> = emptyList()
+    private var lastPlaybackCompletionId = ttsManager.state.value.playbackCompletionId
 
     init {
         observeTtsState()
@@ -72,8 +73,38 @@ class ReaderViewModel @Inject constructor(
                         sleepTimerMinutes = ttsState.sleepTimerMinutes
                     )
                 }
+                if (ttsState.playbackCompletionId != lastPlaybackCompletionId) {
+                    lastPlaybackCompletionId = ttsState.playbackCompletionId
+                    continueWithNextChapter(ttsState.nowPlaying)
+                }
             }
         }
+    }
+
+    private fun continueWithNextChapter(completed: NowPlaying?) {
+        val state = _uiState.value
+        val book = state.book ?: return
+        if (completed?.bookId != book.id || completed.chapterIndex != state.currentChapterIndex) return
+
+        val nextIndex = (state.currentChapterIndex + 1..book.chapters.lastIndex)
+            .firstOrNull { parseSentences(book.chapters[it].content).isNotEmpty() }
+            ?: return
+        val chapter = book.chapters[nextIndex]
+        sentences = parseSentences(chapter.content)
+        _uiState.update {
+            it.copy(
+                currentChapterIndex = nextIndex,
+                currentChapter = chapter,
+                currentSentenceIndex = 0,
+                textChunks = sentences.mapIndexed { index, text ->
+                    TextChunk(id = "${book.id}:$nextIndex:$index", text = text)
+                }
+            )
+        }
+        publishChapterHighlights()
+        saveProgress(book.id, nextIndex, 0)
+        ttsManager.setNowPlaying(NowPlaying(book.id, book.title, nextIndex, chapter.title))
+        ttsManager.speakSentences(sentences, 0)
     }
 
     /**
@@ -218,12 +249,6 @@ class ReaderViewModel @Inject constructor(
                 val newSize = (_uiState.value.fontSizeSp + action.deltaSp).coerceIn(12, 32)
                 _uiState.update { it.copy(fontSizeSp = newSize) }
             }
-            is ReaderUiAction.OnChangeTtsRate -> {
-                ttsManager.setSpeechRate(action.rate)
-                viewModelScope.launch {
-                    appSettingsManager.setTtsRate(action.rate)
-                }
-            }
             is ReaderUiAction.OnAddBookmark -> {
                 val state = _uiState.value
                 val book = state.book ?: return
@@ -290,9 +315,6 @@ class ReaderViewModel @Inject constructor(
                     bookRepository.removeHighlightAt(book.id, state.currentChapterIndex, action.sentenceIndex)
                     _uiState.update { it.copy(markingSentenceIndex = null) }
                 }
-            }
-            ReaderUiAction.OnTogglePlayerLayout -> {
-                _uiState.update { it.copy(isPlayerExpanded = !it.isPlayerExpanded) }
             }
             ReaderUiAction.OnPreviousSentence -> {
                 val newIndex = (_uiState.value.currentSentenceIndex - 1).coerceAtLeast(0)

@@ -30,16 +30,12 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Toc
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.BookmarkAdd
-import androidx.compose.material.icons.outlined.ExpandLess
-import androidx.compose.material.icons.outlined.ExpandMore
 import androidx.compose.material.icons.outlined.Forward10
-import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Replay10
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.SkipPrevious
-import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
@@ -196,8 +192,6 @@ fun ReaderScreen(
                 uiState = uiState,
                 textColor = textColor,
                 bgColor = bgColor,
-                isExpanded = uiState.isPlayerExpanded,
-                onToggleExpand = { viewModel.handleAction(ReaderUiAction.OnTogglePlayerLayout) },
                 onPlayPause = { viewModel.handleAction(ReaderUiAction.OnPlayPauseTts) },
                 onPrevChapter = {
                     viewModel.handleAction(ReaderUiAction.OnChangeChapter(uiState.currentChapterIndex - 1))
@@ -209,16 +203,6 @@ fun ReaderScreen(
                 onNextSentence = { viewModel.handleAction(ReaderUiAction.OnNextSentence) },
                 onSkipBack = { viewModel.handleAction(ReaderUiAction.OnSkipBack) },
                 onSkipForward = { viewModel.handleAction(ReaderUiAction.OnSkipForward) },
-                onToggleSpeed = {
-                    val nextRate = when (uiState.ttsRate) {
-                        1.0f -> 1.25f
-                        1.25f -> 1.5f
-                        1.5f -> 2.0f
-                        2.0f -> 0.75f
-                        else -> 1.0f
-                    }
-                    viewModel.handleAction(ReaderUiAction.OnChangeTtsRate(nextRate))
-                },
                 onSleepTimer = { showSleepTimerDialog = true },
                 onVoiceSettings = { showSettingsSheet = true },
                 onBookmark = { showBookmarkDialog = true }
@@ -730,8 +714,6 @@ fun ReaderTtsBottomBar(
     uiState: ReaderUiState,
     textColor: Color,
     bgColor: Color,
-    isExpanded: Boolean,
-    onToggleExpand: () -> Unit,
     onPlayPause: () -> Unit,
     onPrevChapter: () -> Unit,
     onNextChapter: () -> Unit,
@@ -739,7 +721,6 @@ fun ReaderTtsBottomBar(
     onNextSentence: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
-    onToggleSpeed: () -> Unit,
     onSleepTimer: () -> Unit,
     onVoiceSettings: () -> Unit,
     onBookmark: () -> Unit
@@ -759,19 +740,11 @@ fun ReaderTtsBottomBar(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onToggleExpand() }
                     .padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Outlined.GraphicEq,
-                        contentDescription = null,
-                        tint = if (uiState.isTtsPlaying) SignalOrange else textColor.copy(alpha = 0.6f),
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
                     val engineLabel = if (uiState.ttsEngineId == EngineId.EDGE) "Edge TTS" else "Offline voice"
                     Text(
                         text = when {
@@ -783,43 +756,6 @@ fun ReaderTtsBottomBar(
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = textColor.copy(alpha = 0.8f)
-                    )
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Speed chip
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .clickable(onClick = onToggleSpeed)
-                            .testTag("speed_toggle_chip")
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Outlined.Speed,
-                                contentDescription = null,
-                                tint = textColor,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                // Rate round-trips through the engine as a float; raw it prints like "0.997199x".
-                                text = "%.2f".format(uiState.ttsRate).trimEnd('0').trimEnd('.') + "×",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = textColor,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Icon(
-                        imageVector = if (isExpanded) Icons.Outlined.ExpandMore else Icons.Outlined.ExpandLess,
-                        contentDescription = "Toggle Expand",
-                        tint = textColor,
-                        modifier = Modifier.size(24.dp)
                     )
                 }
             }
@@ -846,13 +782,11 @@ fun ReaderTtsBottomBar(
                         tint = textColor
                     )
                 }
-                if (isExpanded) {
-                    IconButton(onClick = onSkipBack) {
-                        Icon(Icons.Outlined.Replay10, contentDescription = "Back 10 seconds", tint = textColor)
-                    }
-                    IconButton(onClick = onPrevSentence) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Previous Sentence", tint = textColor)
-                    }
+                IconButton(onClick = onSkipBack) {
+                    Icon(Icons.Outlined.Replay10, contentDescription = "Back 10 seconds", tint = textColor)
+                }
+                IconButton(onClick = onPrevSentence) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Previous Sentence", tint = textColor)
                 }
                 // Main Play/Pause — glowing orange circle, bold-contrast direction
                 Box(contentAlignment = Alignment.Center) {
@@ -879,13 +813,11 @@ fun ReaderTtsBottomBar(
                         }
                     }
                 }
-                if (isExpanded) {
-                    IconButton(onClick = onNextSentence) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = "Next Sentence", tint = textColor)
-                    }
-                    IconButton(onClick = onSkipForward) {
-                        Icon(Icons.Outlined.Forward10, contentDescription = "Forward 10 seconds", tint = textColor)
-                    }
+                IconButton(onClick = onNextSentence) {
+                    Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = "Next Sentence", tint = textColor)
+                }
+                IconButton(onClick = onSkipForward) {
+                    Icon(Icons.Outlined.Forward10, contentDescription = "Forward 10 seconds", tint = textColor)
                 }
                 IconButton(
                     onClick = onNextChapter,
@@ -898,22 +830,20 @@ fun ReaderTtsBottomBar(
                     )
                 }
             }
-            if (isExpanded) {
-                Spacer(modifier = Modifier.height(16.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onSleepTimer) {
-                        Icon(Icons.Outlined.Bedtime, contentDescription = "Sleep Timer", tint = textColor)
-                    }
-                    IconButton(onClick = onVoiceSettings) {
-                        Icon(Icons.Outlined.Tune, contentDescription = "Voice Settings", tint = textColor)
-                    }
-                    IconButton(onClick = onBookmark) {
-                        Icon(Icons.Outlined.BookmarkAdd, contentDescription = "Bookmark", tint = textColor)
-                    }
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onSleepTimer) {
+                    Icon(Icons.Outlined.Bedtime, contentDescription = "Sleep Timer", tint = textColor)
+                }
+                IconButton(onClick = onVoiceSettings) {
+                    Icon(Icons.Outlined.Tune, contentDescription = "Voice Settings", tint = textColor)
+                }
+                IconButton(onClick = onBookmark) {
+                    Icon(Icons.Outlined.BookmarkAdd, contentDescription = "Bookmark", tint = textColor)
                 }
             }
         }

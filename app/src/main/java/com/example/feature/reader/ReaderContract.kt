@@ -24,7 +24,6 @@ data class ReaderUiState(
     val ttsVoice: String = "default",
     val ttsEngineId: EngineId = EngineId.OFFLINE,
     val ttsPitch: Float = 1.0f,
-    val isPlayerExpanded: Boolean = false,
     val sleepTimerMinutes: Int? = null,
     val textChunks: List<com.example.domain.model.tts.TextChunk> = emptyList(),
     val bookmarkAddedMessage: String? = null,
@@ -49,13 +48,11 @@ sealed interface ReaderUiAction {
     data class OnChangeChapter(val newIndex: Int) : ReaderUiAction
     data class OnChangeTheme(val theme: ReaderTheme) : ReaderUiAction
     data class OnChangeFontSize(val deltaSp: Int) : ReaderUiAction
-    data class OnChangeTtsRate(val rate: Float) : ReaderUiAction
     data class OnAddBookmark(val note: String) : ReaderUiAction
     /** Long-press on a sentence: opens the marker sheet for it. */
     data class OnStartMarking(val sentenceIndex: Int) : ReaderUiAction
     data object OnDismissMarking : ReaderUiAction
     data class OnSaveHighlight(val colorIndex: Int, val note: String) : ReaderUiAction
     data class OnRemoveHighlight(val sentenceIndex: Int) : ReaderUiAction
-    data object OnTogglePlayerLayout : ReaderUiAction
     data class OnSleepTimer(val minutes: Int?) : ReaderUiAction
 }

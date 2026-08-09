@@ -135,8 +135,12 @@ class EdgeTtsEngine @Inject constructor(
             override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
                 val audio = extractAudioPayload(bytes) ?: return
                 if (audio.isNotEmpty()) {
-                    outputStream.write(audio)
-                    receivedAnyAudio = true
+                    runCatching { outputStream.write(audio) }
+                        .onSuccess { receivedAnyAudio = true }
+                        .onFailure {
+                            if (!result.isCompleted) result.complete(false)
+                            webSocket.cancel()
+                        }
                 }
             }
 
@@ -154,13 +158,15 @@ class EdgeTtsEngine @Inject constructor(
         val succeeded = try {
             result.await()
         } finally {
+            // Also runs when withTimeoutOrNull cancels this coroutine; otherwise the socket survives
+            // the timeout and its callback keeps writing to a closed stream.
+            webSocket.cancel()
             runCatching { outputStream.close() }
         }
 
         return if (succeeded && receivedAnyAudio && output.length() > 0) {
             output
         } else {
-            webSocket.cancel()
             output.delete()
             null
         }

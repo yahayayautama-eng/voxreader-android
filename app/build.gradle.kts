@@ -122,7 +122,10 @@ dependencies {
   implementation(libs.hilt.android)
   implementation(libs.androidx.hilt.navigation.compose)
   implementation(libs.kotlinx.serialization.json)
-  implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+  implementation("com.tom-roush:pdfbox-android:2.0.27.0") {
+    exclude(group = "org.bouncycastle")
+  }
+  implementation("org.bouncycastle:bcpkix-jdk18on:1.79")
   implementation("com.google.mlkit:text-recognition:16.0.1")
   // WebSocket client for the Edge TTS online voice engine.
   implementation("com.squareup.okhttp3:okhttp:4.12.0")

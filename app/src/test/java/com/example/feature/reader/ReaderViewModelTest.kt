@@ -5,6 +5,7 @@ import com.example.domain.repository.Book
 import com.example.domain.repository.BookRepository
 import com.example.domain.repository.Chapter
 import com.example.tts.ListeningTracker
+import com.example.tts.NowPlaying
 import com.example.tts.TtsManager
 import com.example.tts.TtsState
 import io.mockk.coEvery
@@ -118,5 +119,31 @@ class ReaderViewModelTest {
         viewModel.handleAction(ReaderUiAction.OnPlayPauseTts)
 
         verify { ttsManager.speakSentences(listOf("First sentence.", "Second sentence."), 0) }
+    }
+
+    @Test
+    fun `finishing a chapter starts the next chapter`() = runTest(testDispatcher) {
+        val chapters = listOf(
+            Chapter(1, "Chapter 1", "End of chapter one."),
+            Chapter(2, "Chapter 2", "Start of chapter two. Next sentence.")
+        )
+        coEvery { bookRepository.getBookById("1") } returns
+            Book("1", "Title", "Author", chapters = chapters)
+        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker)
+
+        viewModel.loadBook("1")
+        testDispatcher.scheduler.advanceUntilIdle()
+        ttsStateFlow.value = TtsState(
+            nowPlaying = NowPlaying("1", "Title", 0, "Chapter 1"),
+            currentSentenceIndex = 0,
+            totalSentences = 1,
+            playbackCompletionId = 1
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.currentChapterIndex)
+        assertEquals("Chapter 2", viewModel.uiState.value.currentChapter?.title)
+        verify { ttsManager.speakSentences(listOf("Start of chapter two.", "Next sentence."), 0) }
+        coVerify { bookRepository.updateBookProgress("1", 1, 0) }
     }
 }

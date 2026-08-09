@@ -53,6 +53,15 @@ class MobiParserTest {
         assertEquals("a", String(MobiParser.decompressPalmDoc(input)))
     }
 
+    @Test
+    fun `palmdoc rejects decompression beyond its configured limit`() {
+        val error = runCatching {
+            MobiParser.decompressPalmDoc("too much text".toByteArray(), maxOutputBytes = 8)
+        }.exceptionOrNull()
+
+        assertTrue(error is MobiParser.ParseException)
+    }
+
     // ---- Trailing entries -------------------------------------------------------------------
 
     @Test

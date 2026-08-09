@@ -32,6 +32,10 @@ class ImportViewModel @Inject constructor(
     }
 
     fun addScannedPage(bitmap: Bitmap) {
+        if (_capturedPages.value.size >= MAX_SCANNED_PAGES) {
+            bitmap.recycle()
+            return
+        }
         _capturedPages.value = _capturedPages.value + bitmap
     }
 
@@ -48,6 +52,15 @@ class ImportViewModel @Inject constructor(
 
     fun resetState() {
         _importState.value = ImportState.Idle
-        _capturedPages.value = emptyList()
+        clearScannedPages()
+    }
+
+    override fun onCleared() {
+        clearScannedPages()
+        super.onCleared()
+    }
+
+    companion object {
+        const val MAX_SCANNED_PAGES = 8
     }
 }
