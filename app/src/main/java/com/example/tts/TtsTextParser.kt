@@ -35,5 +35,5 @@ object TtsTextParser {
         return chunks
     }
 
-    private const val MAX_TTS_CHARS = 240
+    private const val MAX_TTS_CHARS = 160
 }

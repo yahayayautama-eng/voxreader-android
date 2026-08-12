@@ -30,12 +30,48 @@ class KokoroNativeEngine @Inject constructor(
     private var libraryLoadFailed = false
 
     suspend fun synthesize(text: String, speed: Float, voicePath: String = DEFAULT_VOICE): File? = withContext(Dispatchers.IO) {
-        if (text.isBlank() || !ensureInitialized()) return@withContext null
-        maybeRemoveStaleAudio()
-        val output = File(runtimeDir, "audio-${System.nanoTime()}.wav")
-        if (nativeSynthesize(text, File(runtimeDir, voicePath).path, speed.coerceIn(0.5f, 2f), output.path) && output.exists()) {
+        synthesizeInternal(text, speed, voicePath, runtimeDir, sweepStale = true)
+    }
+
+    /** Audiobook segments live outside the live playback cache, which may delete played files. */
+    suspend fun synthesizeForAudiobook(text: String, speed: Float, voicePath: String = DEFAULT_VOICE): File? =
+        withContext(Dispatchers.IO) {
+            synthesizeInternal(text, speed, voicePath, audiobookRuntimeDir, sweepStale = false)
+        }
+
+    /**
+     * Segments are deleted as each chapter commits, but a killed/crashed worker leaves them
+     * behind — this directory is deliberately never swept during normal synthesis (see
+     * [sweepStale]=false above), so nothing else ever removes them. Call once per worker run.
+     */
+    suspend fun cleanupAudiobookRuntime(): Unit = withContext(Dispatchers.IO) {
+        val cutoff = System.currentTimeMillis() - STALE_AUDIO_AGE_MS
+        audiobookRuntimeDir.listFiles { file -> file.name.startsWith("audio-") && file.extension == "wav" }
+            ?.filter { it.lastModified() < cutoff }
+            ?.forEach { it.delete() }
+    }
+
+    private fun synthesizeInternal(
+        text: String,
+        speed: Float,
+        voicePath: String,
+        outputDir: File,
+        sweepStale: Boolean
+    ): File? {
+        if (text.isBlank() || !ensureInitialized()) return null
+        outputDir.mkdirs()
+        if (sweepStale) maybeRemoveStaleAudio(outputDir)
+        val output = File(outputDir, "audio-${System.nanoTime()}.wav")
+        val voice = File(runtimeDir, voicePath)
+        val nativeResult = runCatching {
+                nativeSynthesize(normalizeForNative(text), voice.path, speed.coerceIn(0.5f, 2f), output.path)
+        }.onFailure { error ->
+            Log.e(TAG, "Native synthesis call failed", error)
+        }.getOrDefault(false)
+        return if (nativeResult && output.exists() && output.length() > WAV_HEADER_BYTES) {
             output
         } else {
+            Log.e(TAG, "Native synthesis produced no audio: voice=${voice.path} voiceExists=${voice.isFile} output=${output.path} outputBytes=${output.length()}")
             output.delete()
             null
         }
@@ -65,10 +101,20 @@ class KokoroNativeEngine @Inject constructor(
 
     private fun copyAsset(path: String) {
         val output = File(runtimeDir, path)
-        if (output.exists()) return
         output.parentFile?.mkdirs()
-        context.assets.open("babylon/$path").use { input -> output.outputStream().use(input::copyTo) }
+        context.assets.open("babylon/$path").use { input ->
+            // Runtime assets survive APK upgrades. Re-copy a truncated/stale asset instead of
+            // letting a partial model make every synthesis attempt retry forever.
+            if (output.isFile && output.length() == input.available().toLong()) return
+            output.outputStream().use(input::copyTo)
+        }
     }
+
+    private fun normalizeForNative(text: String): String = text
+        .replace('\u2018', '\'').replace('\u2019', '\'')
+        .replace('\u201C', '"').replace('\u201D', '"')
+        .replace('\u2013', '-').replace('\u2014', '-')
+        .replace("\u2026", "...")
 
     @Volatile
     private var lastStaleSweep = 0L
@@ -79,12 +125,12 @@ class KokoroNativeEngine @Inject constructor(
      * that only ever needs to run once in a while. Once per [STALE_SWEEP_INTERVAL_MS] is enough to
      * keep leaked files from a killed process from accumulating.
      */
-    private fun maybeRemoveStaleAudio() {
+    private fun maybeRemoveStaleAudio(directory: File) {
         val now = System.currentTimeMillis()
         if (now - lastStaleSweep < STALE_SWEEP_INTERVAL_MS) return
         lastStaleSweep = now
         val cutoff = now - STALE_AUDIO_AGE_MS
-        runtimeDir.listFiles { file -> file.name.startsWith("audio-") && file.extension == "wav" }
+        directory.listFiles { file -> file.name.startsWith("audio-") && file.extension == "wav" }
             ?.filter { it.lastModified() < cutoff }
             ?.forEach { it.delete() }
     }
@@ -118,6 +164,9 @@ class KokoroNativeEngine @Inject constructor(
         private const val MODEL = "models/kitten-tts.onnx"
         private const val STALE_AUDIO_AGE_MS = 60 * 60 * 1000L
         private const val STALE_SWEEP_INTERVAL_MS = 5 * 60 * 1000L
+        private const val WAV_HEADER_BYTES = 44L
         private val ASSETS = listOf(PHONEMIZER, DICTIONARY, MODEL) + ALL_VOICES
     }
+
+    private val audiobookRuntimeDir = File(context.filesDir, "audiobook-runtime")
 }

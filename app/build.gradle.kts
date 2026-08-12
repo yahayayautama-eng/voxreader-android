@@ -136,6 +136,7 @@ dependencies {
   // WebSocket client for the Edge TTS online voice engine.
   implementation("com.squareup.okhttp3:okhttp:4.12.0")
   "ksp"(libs.hilt.compiler)
+  "ksp"("androidx.hilt:hilt-compiler:1.3.0")
   "ksp"(libs.androidx.room.compiler)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)

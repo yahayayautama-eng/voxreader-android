@@ -325,6 +325,8 @@ class ReaderViewModel @Inject constructor(
                     book.chapters.size,
                     estimatedBytes = StorageEstimator.estimateAudioBytes(book.chapters.sumOf { it.content.toByteArray().size.toLong() })
                 )
+            } else {
+                audiobookGenerationCoordinator.ensureScheduled(book.id)
             }
             val nowPlaying = NowPlaying(book.id, book.title, chapterIndex, book.chapters.getOrNull(chapterIndex)?.title.orEmpty())
             ttsManager.showAudiobookConversion(nowPlaying, "Creating audiobook before playback starts…")
