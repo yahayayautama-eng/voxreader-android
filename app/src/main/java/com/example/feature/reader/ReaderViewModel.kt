@@ -2,12 +2,14 @@ package com.example.feature.reader
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.local.dao.AudiobookDao
 import com.example.data.local.datastore.AppSettingsManager
 import com.example.domain.repository.BookRepository
 import com.example.domain.repository.Bookmark
 import com.example.domain.repository.Highlight
 import com.example.domain.model.tts.TextChunk
 import com.example.tts.EngineId
+import com.example.tts.GeneratedChapterAudio
 import com.example.tts.ListeningTracker
 import com.example.tts.NowPlaying
 import com.example.tts.TtsChapter
@@ -22,6 +24,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -29,7 +32,8 @@ class ReaderViewModel @Inject constructor(
     private val bookRepository: BookRepository,
     private val ttsManager: TtsManager,
     private val appSettingsManager: AppSettingsManager,
-    private val listeningTracker: ListeningTracker
+    private val listeningTracker: ListeningTracker,
+    private val audiobookDao: AudiobookDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReaderUiState())
@@ -166,16 +170,7 @@ class ReaderViewModel @Inject constructor(
                     ttsManager.resume()
                 } else {
                     state.book?.let { book ->
-                        ttsManager.speakChapters(
-                            chapters = book.chapters.mapIndexed { index, chapter ->
-                                TtsChapter(
-                                    nowPlaying = NowPlaying(book.id, book.title, index, chapter.title),
-                                    text = chapter.content
-                                )
-                            },
-                            startChapterIndex = state.currentChapterIndex,
-                            startSentenceIndex = state.currentSentenceIndex
-                        )
+                        viewModelScope.launch { playBook(book, state.currentChapterIndex, state.currentSentenceIndex) }
                     }
                 }
             }
@@ -311,6 +306,37 @@ class ReaderViewModel @Inject constructor(
             is ReaderUiAction.OnSleepTimer -> {
                 ttsManager.setSleepTimer(action.minutes)
             }
+        }
+    }
+
+    private suspend fun playBook(book: com.example.domain.repository.Book, chapterIndex: Int, sentenceIndex: Int) {
+        val generated = audiobookDao.getChapterAudio(book.id)
+            .filter { it.status == "READY" && it.filePath?.let { path -> File(path).exists() } == true }
+            .associateBy { it.chapterIndex }
+        val playableChapters = book.chapters.indices.filter { generated[it] != null }
+        if (playableChapters.size == book.chapters.count { it.content.isNotBlank() }) {
+            ttsManager.playGeneratedChapters(
+                chapters = book.chapters.mapIndexedNotNull { index, chapter ->
+                    generated[index]?.let { audio ->
+                        GeneratedChapterAudio(
+                            nowPlaying = NowPlaying(book.id, book.title, index, chapter.title),
+                            filePath = audio.filePath!!,
+                            cueCount = audio.segmentCount
+                        )
+                    }
+                },
+                startChapterIndex = chapterIndex,
+                startPositionMs = audiobookDao.getCues(book.id, chapterIndex)
+                    .getOrNull(sentenceIndex)?.startMs ?: 0L
+            )
+        } else {
+            ttsManager.speakChapters(
+                chapters = book.chapters.mapIndexed { index, chapter ->
+                    TtsChapter(NowPlaying(book.id, book.title, index, chapter.title), chapter.content)
+                },
+                startChapterIndex = chapterIndex,
+                startSentenceIndex = sentenceIndex
+            )
         }
     }
 
