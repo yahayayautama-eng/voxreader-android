@@ -10,7 +10,9 @@ import com.example.domain.model.tts.TextChunk
 import com.example.tts.EngineId
 import com.example.tts.ListeningTracker
 import com.example.tts.NowPlaying
+import com.example.tts.TtsChapter
 import com.example.tts.TtsManager
+import com.example.tts.TtsTextParser
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -36,7 +38,6 @@ class ReaderViewModel @Inject constructor(
     private var sentences: List<String> = emptyList()
     private var highlightsJob: Job? = null
     private var allHighlights: List<Highlight> = emptyList()
-    private var lastPlaybackCompletionId = ttsManager.state.value.playbackCompletionId
 
     init {
         observeTtsState()
@@ -73,38 +74,29 @@ class ReaderViewModel @Inject constructor(
                         sleepTimerMinutes = ttsState.sleepTimerMinutes
                     )
                 }
-                if (ttsState.playbackCompletionId != lastPlaybackCompletionId) {
-                    lastPlaybackCompletionId = ttsState.playbackCompletionId
-                    continueWithNextChapter(ttsState.nowPlaying)
-                }
+                followPlaybackChapter(ttsState.nowPlaying)
             }
         }
     }
 
-    private fun continueWithNextChapter(completed: NowPlaying?) {
+    private fun followPlaybackChapter(playing: NowPlaying?) {
         val state = _uiState.value
         val book = state.book ?: return
-        if (completed?.bookId != book.id || completed.chapterIndex != state.currentChapterIndex) return
-
-        val nextIndex = (state.currentChapterIndex + 1..book.chapters.lastIndex)
-            .firstOrNull { parseSentences(book.chapters[it].content).isNotEmpty() }
-            ?: return
-        val chapter = book.chapters[nextIndex]
-        sentences = parseSentences(chapter.content)
+        if (playing?.bookId != book.id || playing.chapterIndex == state.currentChapterIndex) return
+        val chapter = book.chapters.getOrNull(playing.chapterIndex) ?: return
+        sentences = TtsTextParser.sentences(chapter.content)
         _uiState.update {
             it.copy(
-                currentChapterIndex = nextIndex,
+                currentChapterIndex = playing.chapterIndex,
                 currentChapter = chapter,
                 currentSentenceIndex = 0,
                 textChunks = sentences.mapIndexed { index, text ->
-                    TextChunk(id = "${book.id}:$nextIndex:$index", text = text)
+                    TextChunk(id = "${book.id}:${playing.chapterIndex}:$index", text = text)
                 }
             )
         }
         publishChapterHighlights()
-        saveProgress(book.id, nextIndex, 0)
-        ttsManager.setNowPlaying(NowPlaying(book.id, book.title, nextIndex, chapter.title))
-        ttsManager.speakSentences(sentences, 0)
+        saveProgress(book.id, playing.chapterIndex, 0)
     }
 
     /**
@@ -142,7 +134,7 @@ class ReaderViewModel @Inject constructor(
                 val chapterIndex = (bookmarkChapterIndex ?: book.currentChapterIndex)
                     .coerceIn(0, (book.chapters.size - 1).coerceAtLeast(0))
                 val chapter = book.chapters.getOrNull(chapterIndex)
-                sentences = parseSentences(chapter?.content ?: "")
+                sentences = TtsTextParser.sentences(chapter?.content ?: "")
                 val position = (bookmarkSentenceIndex ?: book.currentPosition)
                     .coerceIn(0, (sentences.size - 1).coerceAtLeast(0))
                 _uiState.update {
@@ -157,46 +149,11 @@ class ReaderViewModel @Inject constructor(
                         }
                     )
                 }
+                followPlaybackChapter(ttsManager.state.value.nowPlaying)
             } else {
                 _uiState.update { it.copy(isLoading = false, errorMessage = "Book not found") }
             }
         }
-    }
-
-    private fun parseSentences(text: String): List<String> {
-        if (text.isBlank()) return emptyList()
-        return text
-            .replace(Regex("[\\u0000-\\u001F&&[^\\n\\r\\t]]"), " ")
-            .split(Regex("(?<=[.!?])\\s+"))
-            .flatMap(::splitLongSentence)
-            .filter { it.isNotBlank() }
-    }
-
-    private fun splitLongSentence(sentence: String): List<String> {
-        val normalized = sentence.replace(Regex("\\s+"), " ").trim()
-        if (normalized.length <= MAX_TTS_CHARS) return listOf(normalized)
-        val chunks = mutableListOf<String>()
-        val current = StringBuilder()
-        normalized.split(" ").forEach { word ->
-            if (current.isNotEmpty() && current.length + word.length + 1 > MAX_TTS_CHARS) {
-                chunks += current.toString()
-                current.clear()
-            }
-            if (word.length > MAX_TTS_CHARS) {
-                word.chunked(MAX_TTS_CHARS).forEach { oversizedPart ->
-                    if (current.isNotEmpty()) {
-                        chunks += current.toString()
-                        current.clear()
-                    }
-                    chunks += oversizedPart
-                }
-            } else {
-                if (current.isNotEmpty()) current.append(' ')
-                current.append(word)
-            }
-        }
-        if (current.isNotEmpty()) chunks += current.toString()
-        return chunks
     }
 
     fun handleAction(action: ReaderUiAction) {
@@ -208,16 +165,18 @@ class ReaderViewModel @Inject constructor(
                 } else if (state.isTtsPaused) {
                     ttsManager.resume()
                 } else {
-                    val book = state.book
-                    val chapter = state.currentChapter
-                    if (book != null && chapter != null) {
-                        // Snapshot for the global mini player; speakSentences itself never touches it,
-                        // so this stays put across pause/resume/skip until stop() clears it.
-                        ttsManager.setNowPlaying(
-                            NowPlaying(book.id, book.title, state.currentChapterIndex, chapter.title)
+                    state.book?.let { book ->
+                        ttsManager.speakChapters(
+                            chapters = book.chapters.mapIndexed { index, chapter ->
+                                TtsChapter(
+                                    nowPlaying = NowPlaying(book.id, book.title, index, chapter.title),
+                                    text = chapter.content
+                                )
+                            },
+                            startChapterIndex = state.currentChapterIndex,
+                            startSentenceIndex = state.currentSentenceIndex
                         )
                     }
-                    ttsManager.speakSentences(sentences, state.currentSentenceIndex)
                 }
             }
             ReaderUiAction.OnStopTts -> {
@@ -228,7 +187,7 @@ class ReaderViewModel @Inject constructor(
                 val newIndex = action.newIndex.coerceIn(0, book.chapters.size - 1)
                 ttsManager.stop()
                 val newChapter = book.chapters.getOrNull(newIndex)
-                sentences = parseSentences(newChapter?.content ?: "")
+                sentences = TtsTextParser.sentences(newChapter?.content ?: "")
                 _uiState.update {
                     it.copy(
                         currentChapterIndex = newIndex,
@@ -322,7 +281,7 @@ class ReaderViewModel @Inject constructor(
                 val state = _uiState.value
                 state.book?.let { saveProgress(it.id, state.currentChapterIndex, newIndex) }
                 if (state.isTtsPlaying && state.book != null) {
-                    ttsManager.speakSentences(sentences, newIndex)
+                    ttsManager.seekToSentence(newIndex)
                 }
             }
             ReaderUiAction.OnNextSentence -> {
@@ -331,7 +290,7 @@ class ReaderViewModel @Inject constructor(
                 val state = _uiState.value
                 state.book?.let { saveProgress(it.id, state.currentChapterIndex, newIndex) }
                 if (state.isTtsPlaying && state.book != null) {
-                    ttsManager.speakSentences(sentences, newIndex)
+                    ttsManager.seekToSentence(newIndex)
                 }
             }
             is ReaderUiAction.OnSeekToSentence -> {
@@ -340,7 +299,7 @@ class ReaderViewModel @Inject constructor(
                 val state = _uiState.value
                 state.book?.let { saveProgress(it.id, state.currentChapterIndex, newIndex) }
                 if (state.isTtsPlaying && state.book != null) {
-                    ttsManager.speakSentences(sentences, newIndex)
+                    ttsManager.seekToSentence(newIndex)
                 }
             }
             ReaderUiAction.OnSkipBack -> {
@@ -379,7 +338,7 @@ class ReaderViewModel @Inject constructor(
         _uiState.update { it.copy(currentSentenceIndex = newIndex) }
         state.book?.let { saveProgress(it.id, state.currentChapterIndex, newIndex) }
         if (state.isTtsPlaying && state.book != null) {
-            ttsManager.speakSentences(sentences, newIndex)
+            ttsManager.seekToSentence(newIndex)
         }
     }
 
@@ -390,7 +349,6 @@ class ReaderViewModel @Inject constructor(
     }
 
     private companion object {
-        const val MAX_TTS_CHARS = 240
         // Matches the Replay10 / Forward10 icons in the player; the control must not claim a jump it doesn't make.
         const val SKIP_SECONDS = 10
         // Conversational narration pace; the rate multiplier scales it.

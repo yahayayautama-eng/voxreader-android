@@ -90,10 +90,14 @@ android {
     }
   }
   sourceSets {
+    getByName("debug") {
+      assets.srcDir(rootProject.file("offlinevoices/src/main/assets"))
+    }
     getByName("androidTest") {
       assets.srcDir("$projectDir/schemas")
     }
   }
+  assetPacks += listOf(":offlinevoices")
 }
 
 ksp {

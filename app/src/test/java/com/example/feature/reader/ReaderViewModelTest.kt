@@ -6,6 +6,7 @@ import com.example.domain.repository.BookRepository
 import com.example.domain.repository.Chapter
 import com.example.tts.ListeningTracker
 import com.example.tts.NowPlaying
+import com.example.tts.TtsChapter
 import com.example.tts.TtsManager
 import com.example.tts.TtsState
 import io.mockk.coEvery
@@ -118,11 +119,19 @@ class ReaderViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
         viewModel.handleAction(ReaderUiAction.OnPlayPauseTts)
 
-        verify { ttsManager.speakSentences(listOf("First sentence.", "Second sentence."), 0) }
+        verify {
+            ttsManager.speakChapters(
+                match<List<TtsChapter>> { queue ->
+                    queue.size == 1 && queue[0].text == "First sentence. Second sentence."
+                },
+                0,
+                0
+            )
+        }
     }
 
     @Test
-    fun `finishing a chapter starts the next chapter`() = runTest(testDispatcher) {
+    fun `reader follows chapter advanced by playback queue`() = runTest(testDispatcher) {
         val chapters = listOf(
             Chapter(1, "Chapter 1", "End of chapter one."),
             Chapter(2, "Chapter 2", "Start of chapter two. Next sentence.")
@@ -134,16 +143,15 @@ class ReaderViewModelTest {
         viewModel.loadBook("1")
         testDispatcher.scheduler.advanceUntilIdle()
         ttsStateFlow.value = TtsState(
-            nowPlaying = NowPlaying("1", "Title", 0, "Chapter 1"),
+            nowPlaying = NowPlaying("1", "Title", 1, "Chapter 2"),
             currentSentenceIndex = 0,
-            totalSentences = 1,
-            playbackCompletionId = 1
+            totalSentences = 2,
+            isPreparing = true
         )
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(1, viewModel.uiState.value.currentChapterIndex)
         assertEquals("Chapter 2", viewModel.uiState.value.currentChapter?.title)
-        verify { ttsManager.speakSentences(listOf("Start of chapter two.", "Next sentence."), 0) }
         coVerify { bookRepository.updateBookProgress("1", 1, 0) }
     }
 }

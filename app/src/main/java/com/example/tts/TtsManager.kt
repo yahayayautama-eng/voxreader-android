@@ -37,6 +37,19 @@ data class NowPlaying(
     val chapterTitle: String
 )
 
+data class TtsChapter(val nowPlaying: NowPlaying, val text: String)
+
+internal fun nextPlayableChapter(
+    chapters: List<TtsChapter>,
+    afterIndex: Int
+): Pair<Int, List<String>>? {
+    for (index in afterIndex + 1..chapters.lastIndex) {
+        val sentences = TtsTextParser.sentences(chapters[index].text)
+        if (sentences.isNotEmpty()) return index to sentences
+    }
+    return null
+}
+
 data class TtsState(
     val isInitialized: Boolean = true,
     val isSpeaking: Boolean = false,
@@ -71,6 +84,8 @@ class TtsManager @Inject constructor(
     val state: StateFlow<TtsState> = _state.asStateFlow()
 
     private var currentSentences: List<String> = emptyList()
+    private var chapterQueue: List<TtsChapter> = emptyList()
+    private var chapterQueueIndex = -1
     private var player: MediaPlayer? = null
     private var playerPrepared = false
     private var currentAudioFile: java.io.File? = null
@@ -111,6 +126,26 @@ class TtsManager @Inject constructor(
         .build()
 
     fun speakSentences(sentences: List<String>, startIndex: Int = 0) {
+        chapterQueue = emptyList()
+        chapterQueueIndex = -1
+        startSentenceSession(sentences, startIndex, _state.value.nowPlaying)
+    }
+
+    fun speakChapters(chapters: List<TtsChapter>, startChapterIndex: Int, startSentenceIndex: Int = 0) {
+        chapterQueue = chapters
+        val requested = chapters.indexOfFirst { it.nowPlaying.chapterIndex == startChapterIndex }
+            .takeIf { it >= 0 } ?: 0
+        val next = nextPlayableChapter(chapters, requested - 1) ?: return
+        chapterQueueIndex = next.first
+        startSentenceSession(next.second, startSentenceIndex, chapters[next.first].nowPlaying)
+    }
+
+    fun seekToSentence(sentenceIndex: Int) {
+        if (currentSentences.isEmpty()) return
+        startSentenceSession(currentSentences, sentenceIndex, _state.value.nowPlaying)
+    }
+
+    private fun startSentenceSession(sentences: List<String>, startIndex: Int, nowPlaying: NowPlaying?) {
         if (audioManager.requestAudioFocus(focusRequest) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return
         context.startForegroundService(Intent(context, PlaybackService::class.java))
         stopPlayer()
@@ -128,7 +163,8 @@ class TtsManager @Inject constructor(
                 isPreparing = sentences.isNotEmpty(),
                 errorMessage = null,
                 currentSentenceIndex = start,
-                totalSentences = sentences.size
+                totalSentences = sentences.size,
+                nowPlaying = nowPlaying
             )
         }
         if (sentences.isNotEmpty()) startBuffering(generation)
@@ -168,7 +204,7 @@ class TtsManager @Inject constructor(
         when {
             _state.value.isSpeaking || _state.value.isPreparing -> pause()
             _state.value.isPaused -> resume()
-            currentSentences.isNotEmpty() -> speakSentences(currentSentences, _state.value.currentSentenceIndex)
+            currentSentences.isNotEmpty() -> seekToSentence(_state.value.currentSentenceIndex)
         }
     }
 
@@ -176,6 +212,8 @@ class TtsManager @Inject constructor(
         ++playbackGeneration
         stopPlayer()
         clearBufferedAudio()
+        chapterQueue = emptyList()
+        chapterQueueIndex = -1
         sleepTimerJob?.cancel()
         sleepTimerJob = null
         audioManager.abandonAudioFocusRequest(focusRequest)
@@ -205,7 +243,7 @@ class TtsManager @Inject constructor(
     fun skip(delta: Int) {
         if (currentSentences.isEmpty()) return
         val newIndex = (_state.value.currentSentenceIndex + delta).coerceIn(0, currentSentences.lastIndex)
-        speakSentences(currentSentences, newIndex)
+        seekToSentence(newIndex)
     }
 
     fun setSleepTimer(minutes: Int?) {
@@ -381,6 +419,14 @@ class TtsManager @Inject constructor(
         startPlayback(generation, nextSentenceToPlay, audioFile)
     }
 
+    private fun startNextQueuedChapter(generation: Int): Boolean {
+        if (generation != playbackGeneration || chapterQueue.isEmpty()) return false
+        val next = nextPlayableChapter(chapterQueue, chapterQueueIndex) ?: return false
+        chapterQueueIndex = next.first
+        startSentenceSession(next.second, 0, chapterQueue[next.first].nowPlaying)
+        return true
+    }
+
     private fun startPlayback(generation: Int, index: Int, audioFile: java.io.File) {
         if (generation != playbackGeneration) {
             audioFile.delete()
@@ -412,6 +458,9 @@ class TtsManager @Inject constructor(
                 }
                 if (generation == playbackGeneration) {
                     nextSentenceToPlay = index + 1
+                    if (nextSentenceToPlay >= currentSentences.size && startNextQueuedChapter(generation)) {
+                        return@setOnCompletionListener
+                    }
                     _state.update {
                         it.copy(
                             isSpeaking = false,

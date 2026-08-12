@@ -4,21 +4,29 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- VoxLeaf mark: a leaf (the reading/offline library) crossed by a sound
-         wave (the local voice) — kept inside the ~66dp adaptive-icon safe zone. -->
+    <!-- Open book and narration waves, balanced within the adaptive-icon safe zone. -->
     <path
         android:fillColor="#FFF7F7F5"
-        android:pathData="M54,24 C72,32 76,54 62,68 C55,75 46,75 39,68 C25,54 29,32 47,24 C49.5,23 51.5,23 54,24 Z" />
+        android:pathData="M20,31 C34,27 46,31 54,40 L54,80 C45,73 34,70 20,74 Z" />
+    <path
+        android:fillColor="#FFF7F7F5"
+        android:pathData="M88,31 C74,27 62,31 54,40 L54,80 C63,73 74,70 88,74 Z" />
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#FF16624A"
-        android:strokeWidth="3"
+        android:strokeColor="#FFFF6B35"
+        android:strokeWidth="3.5"
         android:strokeLineCap="round"
-        android:pathData="M40,58 C48,50 60,50 68,58" />
+        android:pathData="M36,51 C46,43 62,43 72,51" />
     <path
         android:fillColor="#00000000"
-        android:strokeColor="#FFF7F7F5"
-        android:strokeWidth="2.5"
+        android:strokeColor="#FFFF6B35"
+        android:strokeWidth="3.5"
         android:strokeLineCap="round"
-        android:pathData="M54,66 L54,84" />
+        android:pathData="M43,59 C49,54 59,54 65,59" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFF6B35"
+        android:strokeWidth="3.5"
+        android:strokeLineCap="round"
+        android:pathData="M50,67 C52,65 56,65 58,67" />
 </vector>

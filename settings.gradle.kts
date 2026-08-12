@@ -26,3 +26,4 @@ dependencyResolutionManagement {
 rootProject.name = "Vox Reader"
 
 include(":app")
+include(":offlinevoices")
