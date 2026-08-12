@@ -12,7 +12,7 @@ import com.example.data.local.entity.AudioCueEntity
 import com.example.data.local.entity.AudiobookGenerationEntity
 import com.example.data.local.entity.ChapterAudioEntity
 import com.example.data.local.datastore.AppSettingsManager
-import com.example.tts.KokoroNativeEngine
+import com.example.tts.SherpaTtsEngine
 import dagger.Lazy
 import javax.inject.Singleton
 import java.util.concurrent.TimeUnit
@@ -50,8 +50,8 @@ class AudiobookGenerationCoordinator @Inject constructor(
         estimatedBytes: Long = 0L
     ) {
         val selectedVoice = appSettingsManager.ttsVoiceFlow.first()
-            .takeIf { it.startsWith("voices/kitten/") }
-            ?: KokoroNativeEngine.DEFAULT_VOICE
+            .takeIf { it.startsWith(SherpaTtsEngine.VOICE_ID_PREFIX) }
+            ?: SherpaTtsEngine.DEFAULT_VOICE
         val selectedSpeed = generationSpeed ?: appSettingsManager.ttsRateFlow.first()
         audiobookDao.upsertGeneration(
             AudiobookGenerationEntity(
@@ -59,7 +59,7 @@ class AudiobookGenerationCoordinator @Inject constructor(
                 status = "QUEUED",
                 totalChapters = totalChapters,
                 voiceId = voiceId ?: selectedVoice,
-                modelVersion = KokoroNativeEngine.MODEL_VERSION,
+                modelVersion = SherpaTtsEngine.MODEL_VERSION,
                 generationSpeed = selectedSpeed.coerceIn(0.5f, 2f),
                 estimatedBytes = estimatedBytes
             )

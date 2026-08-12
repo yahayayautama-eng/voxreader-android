@@ -82,10 +82,24 @@ reason the handoff cannot yet claim an end-to-end 27-chapter audiobook.
   download is clearly a one-time, user-initiated action. **Decide this before starting
   phase 1.** Recommended: bundle one Piper low/medium English voice (~20–63 MB, still far
   below today's 133 MB), make additional voices an explicit opt-in download.
-- **Dependency coordinate.** Published coordinates for the Android artifact differ between
-  sources (Maven Central, JitPack, and third-party mirrors). Verify the current official
-  coordinate and version against the sherpa-onnx releases page at implementation time
-  rather than copying a version string from this document.
+- **Distribution — verified 2026-08-12.** There is **no official k2-fsa coordinate on Maven
+  Central.** A Maven Central search returns only a third-party wrapper
+  (`com.bihe0832.android:lib-sherpa-onnx`), which should not be used. The official Android
+  docs describe building the native libraries from source, and the release page publishes
+  prebuilt AARs. Latest release is **v1.13.5** (2026-08-11), with three Android AARs:
+
+  | Asset | Size | Notes |
+  |---|---|---|
+  | `sherpa-onnx-1.13.5.aar` | 46 MB | ONNX Runtime as a separate `.so` |
+  | `sherpa-onnx-static-link-onnxruntime-1.13.5.aar` | 36 MB | ORT statically linked — fewer native libs, smaller. **Preferred.** |
+  | `sherpa-onnx-1.13.5-rknn.aar` | 24 MB | Rockchip NPU only, not applicable |
+
+  Integration is therefore `implementation(files("libs/sherpa-onnx-static-link-onnxruntime-1.13.5.aar"))`
+  with the AAR committed to `app/libs/`. This matches the convention this repo already
+  follows — prebuilt `.so` files are committed under `app/src/main/jniLibs/` precisely
+  because no build step regenerates them (see the note in `.gitignore`). It is still a
+  large reduction: one committed 36 MB AAR replaces a vendored ONNX Runtime submodule, a
+  CMake build, and a hand-written JNI bridge.
 - **Asset compression.** Android's `aapt` compresses assets by default, which can corrupt
   binary model alignment. `noCompress` must cover `.onnx` and any other binary model files.
 
@@ -147,8 +161,8 @@ verifiable rather than hopeful.
 
 | # | Task | Model | Notes |
 |---|---|---|---|
-| 1.1 | Decide voice distribution: bundled-only vs bundled default + opt-in download | Opus 5 | Product decision with a privacy dimension. Blocks 1.3. |
-| 1.2 | Verify the current official sherpa-onnx Android artifact coordinate and version; add the dependency; add `noCompress` for `.onnx` | Opus 5 | Do not trust a version string copied from a blog or from this document. |
+| 1.1 | ~~Decide voice distribution~~ — **DECIDED 2026-08-12: bundle one English Piper voice; additional voices and languages are an explicit opt-in download in Settings.** | — | Resolved. |
+| 1.2 | Commit `sherpa-onnx-static-link-onnxruntime-1.13.5.aar` to `app/libs/`; wire `implementation(files(...))`; add `noCompress` for `.onnx` | Opus 5 | Distribution verified — see the table above. No Maven coordinate exists; do not substitute the third-party mirror. |
 | 1.3 | Implement `SherpaTtsEngine : TtsEngine` (`OfflineTts` init, `generate`, sample-rate handling, speed/voice selection) | Opus 5 | New primary engine. Must satisfy the same interface the rest of the app already uses, so nothing downstream changes. |
 | 1.4 | Wire voice list, Settings picker, and persisted voice/engine selection to the new engine | Sonnet 5 | `AppSettingsManager`, `SettingsScreen`, `VoiceSelectionScreen`. |
 | 1.5 | Bump model version; invalidate and offer regeneration for audiobooks produced by the old engine | Sonnet 5 | Must not mix voices inside one book. |

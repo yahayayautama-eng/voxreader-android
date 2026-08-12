@@ -13,7 +13,7 @@ import com.example.data.local.dao.AudiobookDao
 import com.example.data.local.entity.AudioCueEntity
 import com.example.data.local.entity.ChapterAudioEntity
 import com.example.data.local.datastore.AppSettingsManager
-import com.example.tts.KokoroNativeEngine
+import com.example.tts.SherpaTtsEngine
 import com.example.tts.TtsTextParser
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -45,12 +45,25 @@ class GenerateAudiobookWorker @AssistedInject constructor(
             Log.e(TAG, "Audiobook job generation row not found: $bookId")
             return@withContext Result.failure()
         }
-        val generation = if (storedGeneration.status == "QUEUED" && storedGeneration.completedChapters == 0) {
+        // Audio produced by a previous model is not interchangeable with audio from the current one —
+        // resuming across a model change would narrate the second half of a book in a different
+        // voice. Discard it and start over rather than producing a book that changes voice midway.
+        val staleModel = storedGeneration.modelVersion != SherpaTtsEngine.MODEL_VERSION
+        if (staleModel) {
+            Log.i(TAG, "Discarding audio from model ${storedGeneration.modelVersion} for $bookId")
+            audiobookDao.deleteChapterAudio(bookId)
+            audioFileStore.deleteBook(bookId)
+        }
+        val generation = if (staleModel || (storedGeneration.status == "QUEUED" && storedGeneration.completedChapters == 0)) {
             val voice = appSettingsManager.ttsVoiceFlow.first()
-                .takeIf { it.startsWith("voices/kitten/") }
-                ?: KokoroNativeEngine.DEFAULT_VOICE
+                .takeIf { it.startsWith(SherpaTtsEngine.VOICE_ID_PREFIX) }
+                ?: SherpaTtsEngine.DEFAULT_VOICE
             storedGeneration.copy(
                 voiceId = voice,
+                modelVersion = SherpaTtsEngine.MODEL_VERSION,
+                completedChapters = 0,
+                progressPercent = 0,
+                generatedBytes = 0L,
                 generationSpeed = appSettingsManager.ttsRateFlow.first().coerceIn(0.5f, 2f)
             ).also { audiobookDao.upsertGeneration(it) }
         } else storedGeneration

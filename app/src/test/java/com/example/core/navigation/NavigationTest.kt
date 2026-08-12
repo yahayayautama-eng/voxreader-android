@@ -13,7 +13,7 @@ import com.example.data.local.datastore.AppSettingsManager
 import com.example.feature.library.LibraryScreenContent
 import com.example.feature.library.LibraryUiState
 import com.example.tts.EdgeTtsEngine
-import com.example.tts.KokoroNativeEngine
+import com.example.tts.SherpaTtsEngine
 import com.example.tts.TtsManager
 import dagger.Lazy
 import org.junit.Assert.assertEquals
@@ -36,8 +36,8 @@ class NavigationTest {
     fun appStartsAtSplash() {
         composeTestRule.mainClock.autoAdvance = false
         lateinit var navController: TestNavHostController
-        val unusedNativeEngine = object : Lazy<KokoroNativeEngine> {
-            override fun get(): KokoroNativeEngine = error("This navigation test does not synthesize speech")
+        val unusedNativeEngine = object : Lazy<SherpaTtsEngine> {
+            override fun get(): SherpaTtsEngine = error("This navigation test does not synthesize speech")
         }
         val unusedEdgeEngine = object : Lazy<EdgeTtsEngine> {
             override fun get(): EdgeTtsEngine = error("This navigation test does not synthesize speech")

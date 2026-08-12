@@ -71,9 +71,9 @@ data class TtsState(
     val pitch: Float = 1.0f,
     val engineId: EngineId = EngineId.OFFLINE,
     val isLoadingVoices: Boolean = false,
-    val selectedVoicePath: String = KokoroNativeEngine.DEFAULT_VOICE,
-    val availableVoices: List<EngineVoice> = KokoroNativeEngine.ALL_VOICES.map {
-        EngineVoice(id = it, displayName = KokoroNativeEngine.voiceDisplayName(it), locale = "en-US")
+    val selectedVoicePath: String = SherpaTtsEngine.DEFAULT_VOICE,
+    val availableVoices: List<EngineVoice> = SherpaTtsEngine.NARRATOR_PRESETS.map {
+        EngineVoice(id = SherpaTtsEngine.voiceId(it.speakerId), displayName = it.displayName, locale = "en-US")
     },
     val sleepTimerMinutes: Int? = null,
     val nowPlaying: NowPlaying? = null,
@@ -84,7 +84,7 @@ data class TtsState(
 @Singleton
 class TtsManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val kokoroEngine: Lazy<KokoroNativeEngine>,
+    private val offlineEngine: Lazy<SherpaTtsEngine>,
     private val edgeEngine: Lazy<EdgeTtsEngine>,
     private val appSettingsManager: AppSettingsManager,
     private val bookDao: BookDao
@@ -428,7 +428,7 @@ class TtsManager @Inject constructor(
         }
     }
 
-    private fun engineFor(id: EngineId): TtsEngine = if (id == EngineId.EDGE) edgeEngine.get() else kokoroEngine.get()
+    private fun engineFor(id: EngineId): TtsEngine = if (id == EngineId.EDGE) edgeEngine.get() else offlineEngine.get()
     private fun activeEngine(): TtsEngine = engineFor(_state.value.engineId)
 
     /**

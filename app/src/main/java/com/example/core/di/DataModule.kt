@@ -2,7 +2,7 @@ package com.example.core.di
 
 import com.example.audiobook.AudiobookSynthesizer
 import com.example.data.repository.RoomBookRepository
-import com.example.tts.KokoroNativeEngine
+import com.example.tts.SherpaTtsEngine
 import com.example.data.repository.TextBookImporterImpl
 import com.example.domain.repository.BookRepository
 import com.example.domain.usecase.ImportScannedBookUseCase
@@ -38,6 +38,6 @@ abstract class DataModule {
 
     @Binds
     abstract fun bindAudiobookSynthesizer(
-        engine: KokoroNativeEngine
+        engine: SherpaTtsEngine
     ): AudiobookSynthesizer
 }

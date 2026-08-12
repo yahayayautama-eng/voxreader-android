@@ -32,3 +32,8 @@ keystore.properties
 !/app/src/main/cpp/third_party/babylon/submodules/onnxruntime/
 /app/src/main/cpp/third_party/babylon/submodules/onnxruntime/*
 !/app/src/main/cpp/third_party/babylon/submodules/onnxruntime/include/
+
+# sherpa-onnx is distributed as a release-page AAR with no Maven coordinate; the
+# binary is committed for the same reason the jniLibs .so files are — nothing in
+# this repo regenerates it.
+!/app/libs/

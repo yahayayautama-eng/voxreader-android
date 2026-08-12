@@ -89,6 +89,11 @@ android {
       useLegacyPackaging = false
     }
   }
+  // aapt compresses assets by default, which breaks the memory alignment ONNX Runtime needs to map
+  // a model directly. espeak's binary tables are read the same way.
+  androidResources {
+    noCompress += listOf("onnx", "bin", "dict")
+  }
   sourceSets {
     getByName("debug") {
       assets.srcDir(rootProject.file("offlinevoices/src/main/assets"))
@@ -133,6 +138,9 @@ dependencies {
   }
   implementation("org.bouncycastle:bcpkix-jdk18on:1.79")
   implementation("com.google.mlkit:text-recognition:16.0.1")
+  // sherpa-onnx publishes no Maven coordinate; the official artifact is the release-page AAR.
+  // The static-link build bundles ONNX Runtime, so this is the only native library needed.
+  implementation(files("libs/sherpa-onnx-static-link-onnxruntime-1.13.5.aar"))
   // WebSocket client for the Edge TTS online voice engine.
   implementation("com.squareup.okhttp3:okhttp:4.12.0")
   "ksp"(libs.hilt.compiler)

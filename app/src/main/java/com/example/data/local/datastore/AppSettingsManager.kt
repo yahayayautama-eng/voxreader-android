@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
+import com.example.tts.SherpaTtsEngine
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -33,7 +34,7 @@ class AppSettingsManager @Inject constructor(
     val themeFlow: Flow<String> = context.dataStore.data.map { it[THEME_KEY] ?: "SYSTEM" }
     val ttsRateFlow: Flow<Float> = context.dataStore.data.map { it[TTS_RATE_KEY] ?: 1.0f }
     val ttsPitchFlow: Flow<Float> = context.dataStore.data.map { it[TTS_PITCH_KEY] ?: 1.0f }
-    val ttsVoiceFlow: Flow<String> = context.dataStore.data.map { it[TTS_VOICE_KEY] ?: "voices/kitten/en-US-bella.bin" }
+    val ttsVoiceFlow: Flow<String> = context.dataStore.data.map { it[TTS_VOICE_KEY] ?: SherpaTtsEngine.DEFAULT_VOICE }
     /** Raw storage key ("offline"/"edge") rather than the `tts` package's [com.example.tts.EngineId]
      *  enum, so this data-layer class doesn't depend on it — callers map with `EngineId.fromStorageKey`. */
     val ttsEngineFlow: Flow<String> = context.dataStore.data.map { it[TTS_ENGINE_KEY] ?: "offline" }
