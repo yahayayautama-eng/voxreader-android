@@ -47,6 +47,7 @@ data class Book(
     val totalChapters: Int = 1,
     val currentChapterIndex: Int = 0,
     val currentPosition: Int = 0,
+    val audioPositionMs: Long = 0L,
     val isFavorite: Boolean = false,
     val chapters: List<Chapter> = emptyList()
 )

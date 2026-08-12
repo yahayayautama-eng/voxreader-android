@@ -75,7 +75,82 @@ data class ReadingProgressEntity(
     @PrimaryKey val bookId: String,
     val currentChapterIndex: Int,
     val currentPosition: Int,
+    val audioPositionMs: Long = 0L,
     val lastUpdatedAt: Long = System.currentTimeMillis()
+)
+
+@Entity(
+    tableName = "audiobook_generations",
+    foreignKeys = [
+        ForeignKey(
+            entity = BookEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["bookId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ]
+)
+data class AudiobookGenerationEntity(
+    @PrimaryKey val bookId: String,
+    val status: String,
+    val completedChapters: Int = 0,
+    val totalChapters: Int = 0,
+    val progressPercent: Int = 0,
+    val voiceId: String,
+    val modelVersion: String,
+    val generationSpeed: Float = 1f,
+    val estimatedBytes: Long = 0L,
+    val generatedBytes: Long = 0L,
+    val errorCode: String? = null,
+    val errorMessage: String? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+)
+
+@Entity(
+    tableName = "chapter_audio",
+    primaryKeys = ["bookId", "chapterIndex"],
+    foreignKeys = [
+        ForeignKey(
+            entity = BookEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["bookId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("bookId"), Index("status")]
+)
+data class ChapterAudioEntity(
+    val bookId: String,
+    val chapterIndex: Int,
+    val status: String,
+    val filePath: String? = null,
+    val durationMs: Long = 0L,
+    val fileSizeBytes: Long = 0L,
+    val checksum: String? = null,
+    val segmentCount: Int = 0,
+    val updatedAt: Long = System.currentTimeMillis()
+)
+
+@Entity(
+    tableName = "audio_cues",
+    primaryKeys = ["bookId", "chapterIndex", "sentenceIndex"],
+    foreignKeys = [
+        ForeignKey(
+            entity = ChapterAudioEntity::class,
+            parentColumns = ["bookId", "chapterIndex"],
+            childColumns = ["bookId", "chapterIndex"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [Index("bookId", "chapterIndex")]
+)
+data class AudioCueEntity(
+    val bookId: String,
+    val chapterIndex: Int,
+    val sentenceIndex: Int,
+    val startMs: Long,
+    val endMs: Long
 )
 
 /**
