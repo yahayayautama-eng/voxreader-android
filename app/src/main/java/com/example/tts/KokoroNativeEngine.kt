@@ -2,6 +2,7 @@ package com.example.tts
 
 import android.content.Context
 import android.util.Log
+import com.example.audiobook.AudiobookSynthesizer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,7 +14,7 @@ import javax.inject.Singleton
 @Singleton
 class KokoroNativeEngine @Inject constructor(
     @ApplicationContext private val context: Context
-) : TtsEngine {
+) : TtsEngine, AudiobookSynthesizer {
     override val id: String get() = EngineId.OFFLINE.storageKey
     override val displayName: String get() = "Offline neural voice"
     override val requiresNetwork: Boolean get() = false
@@ -34,7 +35,7 @@ class KokoroNativeEngine @Inject constructor(
     }
 
     /** Audiobook segments live outside the live playback cache, which may delete played files. */
-    suspend fun synthesizeForAudiobook(text: String, speed: Float, voicePath: String = DEFAULT_VOICE): File? =
+    override suspend fun synthesizeForAudiobook(text: String, speed: Float, voicePath: String): File? =
         withContext(Dispatchers.IO) {
             synthesizeInternal(text, speed, voicePath, audiobookRuntimeDir, sweepStale = false)
         }
@@ -44,7 +45,7 @@ class KokoroNativeEngine @Inject constructor(
      * behind — this directory is deliberately never swept during normal synthesis (see
      * [sweepStale]=false above), so nothing else ever removes them. Call once per worker run.
      */
-    suspend fun cleanupAudiobookRuntime(): Unit = withContext(Dispatchers.IO) {
+    override suspend fun cleanupAudiobookRuntime(): Unit = withContext(Dispatchers.IO) {
         val cutoff = System.currentTimeMillis() - STALE_AUDIO_AGE_MS
         audiobookRuntimeDir.listFiles { file -> file.name.startsWith("audio-") && file.extension == "wav" }
             ?.filter { it.lastModified() < cutoff }

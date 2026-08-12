@@ -29,7 +29,7 @@ class GenerateAudiobookWorker @AssistedInject constructor(
     private val database: AppDatabase,
     private val audiobookDao: AudiobookDao,
     private val audioFileStore: AudioFileStore,
-    private val generator: KokoroNativeEngine,
+    private val generator: AudiobookSynthesizer,
     private val appSettingsManager: AppSettingsManager
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
