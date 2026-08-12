@@ -750,6 +750,7 @@ fun ReaderTtsBottomBar(
                         text = when {
                             uiState.isTtsPlaying -> "$engineLabel · sentence ${uiState.currentSentenceIndex + 1}"
                             uiState.isTtsPaused -> "Speech paused"
+                            uiState.isAudiobookConverting -> uiState.ttsErrorMessage ?: "Creating audiobook before playback starts"
                             uiState.isTtsPreparing -> "Preparing $engineLabel…"
                             uiState.ttsErrorMessage != null -> uiState.ttsErrorMessage
                             else -> "$engineLabel ready"
@@ -805,8 +806,8 @@ fun ReaderTtsBottomBar(
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
-                                imageVector = if (uiState.isTtsPlaying || uiState.isTtsPreparing) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                                contentDescription = if (uiState.isTtsPlaying || uiState.isTtsPreparing) "Pause Speech" else "Play Speech",
+                                imageVector = if (uiState.isTtsPlaying || (uiState.isTtsPreparing && !uiState.isAudiobookConverting)) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                                contentDescription = if (uiState.isTtsPlaying || (uiState.isTtsPreparing && !uiState.isAudiobookConverting)) "Pause Speech" else "Play Speech",
                                 tint = Carbon,
                                 modifier = Modifier.size(32.dp)
                             )

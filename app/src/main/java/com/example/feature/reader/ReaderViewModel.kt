@@ -78,6 +78,7 @@ class ReaderViewModel @Inject constructor(
                         isTtsPlaying = ttsState.isSpeaking,
                         isTtsPaused = ttsState.isPaused,
                         isTtsPreparing = ttsState.isPreparing,
+                        isAudiobookConverting = ttsState.isConvertingAudiobook,
                         currentSentenceIndex = ttsState.currentSentenceIndex,
                         ttsRate = ttsState.speechRate,
                         ttsEngineId = ttsState.engineId,

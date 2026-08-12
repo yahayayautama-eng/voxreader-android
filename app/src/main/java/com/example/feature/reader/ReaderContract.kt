@@ -19,6 +19,7 @@ data class ReaderUiState(
     val isTtsPlaying: Boolean = false,
     val isTtsPaused: Boolean = false,
     val isTtsPreparing: Boolean = false,
+    val isAudiobookConverting: Boolean = false,
     val currentSentenceIndex: Int = 0,
     val ttsRate: Float = 1.0f,
     val ttsVoice: String = "default",

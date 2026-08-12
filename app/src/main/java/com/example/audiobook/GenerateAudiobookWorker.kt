@@ -9,11 +9,13 @@ import com.example.data.local.AppDatabase
 import com.example.data.local.dao.AudiobookDao
 import com.example.data.local.entity.AudioCueEntity
 import com.example.data.local.entity.ChapterAudioEntity
+import com.example.data.local.datastore.AppSettingsManager
 import com.example.tts.KokoroNativeEngine
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.first
 import java.io.File
 
 @HiltWorker
@@ -23,13 +25,23 @@ class GenerateAudiobookWorker @AssistedInject constructor(
     private val database: AppDatabase,
     private val audiobookDao: AudiobookDao,
     private val audioFileStore: AudioFileStore,
-    private val generator: KokoroNativeEngine
+    private val generator: KokoroNativeEngine,
+    private val appSettingsManager: AppSettingsManager
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val bookId = inputData.getString(BOOK_ID) ?: return@withContext Result.failure()
         setForeground(getForegroundInfo())
         val book = database.bookDao().getBookById(bookId) ?: return@withContext Result.failure()
-        val generation = audiobookDao.getGeneration(bookId) ?: return@withContext Result.failure()
+        val storedGeneration = audiobookDao.getGeneration(bookId) ?: return@withContext Result.failure()
+        val generation = if (storedGeneration.status == "QUEUED" && storedGeneration.completedChapters == 0) {
+            val voice = appSettingsManager.ttsVoiceFlow.first()
+                .takeIf { it.startsWith("voices/kitten/") }
+                ?: KokoroNativeEngine.DEFAULT_VOICE
+            storedGeneration.copy(
+                voiceId = voice,
+                generationSpeed = appSettingsManager.ttsRateFlow.first().coerceIn(0.5f, 2f)
+            ).also { audiobookDao.upsertGeneration(it) }
+        } else storedGeneration
         audiobookDao.updateGenerationStatus(bookId, "CONVERTING")
         try {
             book.sections.sortedBy { it.section.chapterNumber }.forEachIndexed { chapterIndex, section ->
