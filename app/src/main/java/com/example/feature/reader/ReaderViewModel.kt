@@ -3,6 +3,8 @@ package com.example.feature.reader
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.dao.AudiobookDao
+import com.example.audiobook.AudiobookGenerationCoordinator
+import com.example.audiobook.StorageEstimator
 import com.example.data.local.datastore.AppSettingsManager
 import com.example.domain.repository.BookRepository
 import com.example.domain.repository.Bookmark
@@ -22,6 +24,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.io.File
@@ -33,7 +38,8 @@ class ReaderViewModel @Inject constructor(
     private val ttsManager: TtsManager,
     private val appSettingsManager: AppSettingsManager,
     private val listeningTracker: ListeningTracker,
-    private val audiobookDao: AudiobookDao
+    private val audiobookDao: AudiobookDao,
+    private val audiobookGenerationCoordinator: AudiobookGenerationCoordinator
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReaderUiState())
@@ -42,6 +48,7 @@ class ReaderViewModel @Inject constructor(
     private var sentences: List<String> = emptyList()
     private var highlightsJob: Job? = null
     private var allHighlights: List<Highlight> = emptyList()
+    private var generationPlaybackJob: Job? = null
 
     init {
         observeTtsState()
@@ -310,6 +317,29 @@ class ReaderViewModel @Inject constructor(
     }
 
     private suspend fun playBook(book: com.example.domain.repository.Book, chapterIndex: Int, sentenceIndex: Int) {
+        if (book.audiobookStatus != "READY") {
+            if (book.audiobookStatus == "NONE") {
+                audiobookGenerationCoordinator.enqueue(
+                    book.id,
+                    book.chapters.size,
+                    estimatedBytes = StorageEstimator.estimateAudioBytes(book.chapters.sumOf { it.content.toByteArray().size.toLong() })
+                )
+            }
+            val nowPlaying = NowPlaying(book.id, book.title, chapterIndex, book.chapters.getOrNull(chapterIndex)?.title.orEmpty())
+            ttsManager.showAudiobookConversion(nowPlaying, "Creating audiobook before playback starts…")
+            generationPlaybackJob?.cancel()
+            generationPlaybackJob = viewModelScope.launch {
+                val generation = audiobookDao.observeGeneration(book.id)
+                    .filterNotNull()
+                    .first { it.status == "READY" || it.status == "FAILED" || it.status == "CANCELLED" }
+                if (generation.status == "READY") {
+                    bookRepository.getBookById(book.id)?.let { latest -> playBook(latest, chapterIndex, sentenceIndex) }
+                } else {
+                    ttsManager.showAudiobookConversion(nowPlaying, "Audiobook conversion ${generation.status.lowercase()}. Retry from book details.")
+                }
+            }
+            return
+        }
         val generated = audiobookDao.getChapterAudio(book.id)
             .filter { it.status == "READY" && it.filePath?.let { path -> File(path).exists() } == true }
             .associateBy { it.chapterIndex }
@@ -332,12 +362,10 @@ class ReaderViewModel @Inject constructor(
                     .getOrNull(sentenceIndex)?.startMs ?: 0L
             )
         } else {
-            ttsManager.speakChapters(
-                chapters = book.chapters.mapIndexed { index, chapter ->
-                    TtsChapter(NowPlaying(book.id, book.title, index, chapter.title), chapter.content)
-                },
-                startChapterIndex = chapterIndex,
-                startSentenceIndex = sentenceIndex
+            audiobookGenerationCoordinator.regenerate(book.id, book.chapters.size)
+            ttsManager.showAudiobookConversion(
+                NowPlaying(book.id, book.title, chapterIndex, book.chapters.getOrNull(chapterIndex)?.title.orEmpty()),
+                "Rebuilding missing audiobook audio before playback starts…"
             )
         }
     }

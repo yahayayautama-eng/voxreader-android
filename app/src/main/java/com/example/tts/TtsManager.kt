@@ -63,6 +63,7 @@ data class TtsState(
     val isSpeaking: Boolean = false,
     val isPaused: Boolean = false,
     val isPreparing: Boolean = false,
+    val isConvertingAudiobook: Boolean = false,
     val errorMessage: String? = null,
     val currentSentenceIndex: Int = 0,
     val totalSentences: Int = 0,
@@ -180,9 +181,34 @@ class TtsManager @Inject constructor(
         clearBufferedAudio()
         if (audioManager.requestAudioFocus(focusRequest) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return
         context.startForegroundService(Intent(context, PlaybackService::class.java))
+        _state.update { it.copy(isConvertingAudiobook = false, errorMessage = null) }
         persistGeneratedProgress(chapters[requested], startPositionMs)
         startGeneratedChapter(startPositionMs)
         startGeneratedProgressPersistence()
+    }
+
+    fun showAudiobookConversion(nowPlaying: NowPlaying, message: String) {
+        stopPlayer()
+        clearBufferedAudio()
+        generatedMode = false
+        generatedProgressJob?.cancel()
+        generatedProgressJob = null
+        generatedQueue = emptyList()
+        generatedQueueIndex = -1
+        chapterQueue = emptyList()
+        chapterQueueIndex = -1
+        _state.update {
+            it.copy(
+                isSpeaking = false,
+                isPaused = false,
+                isPreparing = true,
+                isConvertingAudiobook = true,
+                errorMessage = message,
+                currentSentenceIndex = 0,
+                totalSentences = 0,
+                nowPlaying = nowPlaying
+            )
+        }
     }
 
     private fun startSentenceSession(sentences: List<String>, startIndex: Int, nowPlaying: NowPlaying?) {
@@ -201,6 +227,7 @@ class TtsManager @Inject constructor(
                 isSpeaking = false,
                 isPaused = false,
                 isPreparing = sentences.isNotEmpty(),
+                isConvertingAudiobook = false,
                 errorMessage = null,
                 currentSentenceIndex = start,
                 totalSentences = sentences.size,
@@ -211,6 +238,7 @@ class TtsManager @Inject constructor(
     }
 
     fun pause() {
+        if (_state.value.isConvertingAudiobook) return
         if (generatedMode) {
             player?.takeIf { it.isPlaying }?.pause()
             _state.update { it.copy(isSpeaking = false, isPaused = true) }
@@ -228,6 +256,7 @@ class TtsManager @Inject constructor(
     }
 
     fun resume() {
+        if (_state.value.isConvertingAudiobook) return
         if (generatedMode) {
             val activePlayer = player ?: return
             if (audioManager.requestAudioFocus(focusRequest) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return
@@ -253,6 +282,7 @@ class TtsManager @Inject constructor(
 
     /** Uses the retained chapter snapshot to replay after completion or a recoverable TTS error. */
     fun togglePlayback() {
+        if (_state.value.isConvertingAudiobook) return
         when {
             generatedMode && (_state.value.isSpeaking || _state.value.isPreparing) -> pause()
             generatedMode && _state.value.isPaused -> resume()
@@ -282,6 +312,7 @@ class TtsManager @Inject constructor(
                 isSpeaking = false,
                 isPaused = false,
                 isPreparing = false,
+                isConvertingAudiobook = false,
                 currentSentenceIndex = 0,
                 sleepTimerMinutes = null,
                 nowPlaying = null

@@ -2,6 +2,8 @@ package com.example.feature.reader
 
 import com.example.data.local.datastore.AppSettingsManager
 import com.example.data.local.dao.AudiobookDao
+import com.example.data.local.entity.AudiobookGenerationEntity
+import com.example.audiobook.AudiobookGenerationCoordinator
 import com.example.domain.repository.Book
 import com.example.domain.repository.BookRepository
 import com.example.domain.repository.Chapter
@@ -18,6 +20,7 @@ import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -38,6 +41,7 @@ class ReaderViewModelTest {
     private lateinit var appSettingsManager: AppSettingsManager
     private lateinit var listeningTracker: ListeningTracker
     private lateinit var audiobookDao: AudiobookDao
+    private lateinit var audiobookGenerationCoordinator: AudiobookGenerationCoordinator
 
     private val ttsStateFlow = MutableStateFlow(TtsState())
     private val ttsRateFlow = MutableStateFlow(1.0f)
@@ -53,6 +57,7 @@ class ReaderViewModelTest {
         appSettingsManager = mockk(relaxed = true)
         listeningTracker = mockk(relaxed = true)
         audiobookDao = mockk(relaxed = true)
+        audiobookGenerationCoordinator = mockk(relaxed = true)
 
         every { ttsManager.state } returns ttsStateFlow
         every { appSettingsManager.ttsRateFlow } returns ttsRateFlow
@@ -71,7 +76,7 @@ class ReaderViewModelTest {
         val book = Book("1", "Title", "Author", "path", currentChapterIndex = 0, chapters = listOf(chapter))
         coEvery { bookRepository.getBookById("1") } returns book
 
-        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao)
+        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao, audiobookGenerationCoordinator)
         viewModel.loadBook("1")
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -84,7 +89,7 @@ class ReaderViewModelTest {
 
     @Test
     fun `observeTtsState updates ui state properly`() = runTest(testDispatcher) {
-        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao)
+        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao, audiobookGenerationCoordinator)
         testDispatcher.scheduler.advanceUntilIdle()
 
         ttsStateFlow.value = TtsState(isSpeaking = true, currentSentenceIndex = 5, speechRate = 1.5f)
@@ -101,7 +106,7 @@ class ReaderViewModelTest {
         val chapter = Chapter(1, "Chapter 1", "First sentence. Second sentence.", 1)
         val book = Book("1", "Title", "Author", currentPosition = 0, chapters = listOf(chapter))
         coEvery { bookRepository.getBookById("1") } returns book
-        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao)
+        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao, audiobookGenerationCoordinator)
 
         viewModel.loadBook("1")
         testDispatcher.scheduler.advanceUntilIdle()
@@ -113,25 +118,21 @@ class ReaderViewModelTest {
     }
 
     @Test
-    fun `play action sends the current chapter to Android TTS`() = runTest(testDispatcher) {
+    fun `play action waits for converted audiobook instead of using live TTS`() = runTest(testDispatcher) {
         val chapter = Chapter(1, "Chapter 1", "First sentence. Second sentence.", 1)
-        coEvery { bookRepository.getBookById("1") } returns Book("1", "Title", "Author", chapters = listOf(chapter))
-        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao)
+        coEvery { bookRepository.getBookById("1") } returns Book("1", "Title", "Author", audiobookStatus = "CONVERTING", chapters = listOf(chapter))
+        every { audiobookDao.observeGeneration("1") } returns flowOf(
+            AudiobookGenerationEntity("1", "FAILED", totalChapters = 1, voiceId = "voice", modelVersion = "test")
+        )
+        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao, audiobookGenerationCoordinator)
 
         viewModel.loadBook("1")
         testDispatcher.scheduler.advanceUntilIdle()
         viewModel.handleAction(ReaderUiAction.OnPlayPauseTts)
         testDispatcher.scheduler.advanceUntilIdle()
 
-        verify {
-            ttsManager.speakChapters(
-                match<List<TtsChapter>> { queue ->
-                    queue.size == 1 && queue[0].text == "First sentence. Second sentence."
-                },
-                0,
-                0
-            )
-        }
+        verify(exactly = 0) { ttsManager.speakChapters(any(), any(), any()) }
+        verify { ttsManager.showAudiobookConversion(any(), any()) }
     }
 
     @Test
@@ -142,7 +143,7 @@ class ReaderViewModelTest {
         )
         coEvery { bookRepository.getBookById("1") } returns
             Book("1", "Title", "Author", chapters = chapters)
-        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao)
+        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao, audiobookGenerationCoordinator)
 
         viewModel.loadBook("1")
         testDispatcher.scheduler.advanceUntilIdle()
