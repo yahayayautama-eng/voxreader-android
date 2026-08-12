@@ -6,6 +6,7 @@ import com.example.data.local.entity.BookEntity
 import com.example.data.local.entity.ReadingProgressEntity
 import com.example.data.local.entity.SectionEntity
 import com.example.data.local.entity.TextChunkEntity
+import com.example.data.local.entity.AudiobookGenerationEntity
 
 data class BookWithDetails(
     @Embedded val book: BookEntity,
@@ -15,6 +16,12 @@ data class BookWithDetails(
         entityColumn = "bookId"
     )
     val progress: ReadingProgressEntity?,
+
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "bookId"
+    )
+    val audiobookGeneration: AudiobookGenerationEntity?,
 
     @Relation(
         entity = SectionEntity::class,

@@ -23,6 +23,7 @@ class AudioFileStore @Inject constructor(
 
     fun commit(temp: File, final: File) {
         require(temp.exists() && temp.length() > 44) { "Generated audio is empty" }
+        final.delete()
         check(temp.renameTo(final)) { "Could not commit generated audio" }
     }
 

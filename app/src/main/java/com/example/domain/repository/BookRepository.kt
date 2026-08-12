@@ -48,6 +48,8 @@ data class Book(
     val currentChapterIndex: Int = 0,
     val currentPosition: Int = 0,
     val audioPositionMs: Long = 0L,
+    val audiobookStatus: String = "NONE",
+    val audiobookProgressPercent: Int = 0,
     val isFavorite: Boolean = false,
     val chapters: List<Chapter> = emptyList()
 )

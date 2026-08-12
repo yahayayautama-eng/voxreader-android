@@ -93,6 +93,7 @@ class KokoroNativeEngine @Inject constructor(
     private external fun nativeSynthesize(text: String, voicePath: String, speed: Float, outputPath: String): Boolean
 
     companion object {
+        const val MODEL_VERSION = "kitten-tts-1"
         const val DEFAULT_VOICE = "voices/kitten/en-US-bella.bin"
         val ALL_VOICES = listOf(
             "voices/kitten/en-US-bella.bin",

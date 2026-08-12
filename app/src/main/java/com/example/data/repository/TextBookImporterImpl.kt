@@ -16,6 +16,7 @@ import com.example.domain.usecase.ImportState
 import com.example.domain.usecase.ImportTextBookUseCase
 import com.example.domain.usecase.RedetectChaptersUseCase
 import com.example.domain.usecase.RedetectResult
+import com.example.audiobook.AudiobookGenerationCoordinator
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -34,7 +35,8 @@ import kotlin.math.max
 class TextBookImporterImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val database: AppDatabase,
-    private val ocrScanner: OcrScanner
+    private val ocrScanner: OcrScanner,
+    private val audiobookGenerationCoordinator: AudiobookGenerationCoordinator
 ) : ImportTextBookUseCase, ImportScannedBookUseCase, RedetectChaptersUseCase {
 
     /**
@@ -88,6 +90,7 @@ class TextBookImporterImpl @Inject constructor(
                 // Old chapter/sentence indices no longer line up with the new split.
                 database.bookDao().updateReadingProgress(bookId, 0, 0)
             }
+            audiobookGenerationCoordinator.enqueue(bookId, sections.size)
             RedetectResult.Success
         } catch (exception: CancellationException) {
             throw exception
@@ -289,6 +292,8 @@ class TextBookImporterImpl @Inject constructor(
             database.bookDao().insertSections(sections)
             database.bookDao().insertTextChunks(chunks)
         }
+
+        audiobookGenerationCoordinator.enqueue(bookId, sections.size)
 
         return ImportState.Success(bookId)
     }

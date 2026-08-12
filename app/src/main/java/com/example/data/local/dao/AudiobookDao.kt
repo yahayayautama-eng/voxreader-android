@@ -29,6 +29,15 @@ interface AudiobookDao {
         updatedAt: Long = System.currentTimeMillis()
     )
 
+    @Query("UPDATE audiobook_generations SET completedChapters = :completedChapters, progressPercent = :progressPercent, generatedBytes = generatedBytes + :generatedBytes, updatedAt = :updatedAt WHERE bookId = :bookId")
+    suspend fun updateGenerationProgress(
+        bookId: String,
+        completedChapters: Int,
+        progressPercent: Int,
+        generatedBytes: Long,
+        updatedAt: Long = System.currentTimeMillis()
+    )
+
     @Query("SELECT * FROM chapter_audio WHERE bookId = :bookId ORDER BY chapterIndex")
     fun observeChapterAudio(bookId: String): Flow<List<ChapterAudioEntity>>
 
