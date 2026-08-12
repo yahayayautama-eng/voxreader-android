@@ -50,6 +50,7 @@ data class Book(
     val audioPositionMs: Long = 0L,
     val audiobookStatus: String = "NONE",
     val audiobookProgressPercent: Int = 0,
+    val audiobookEstimatedBytes: Long = 0L,
     val isFavorite: Boolean = false,
     val chapters: List<Chapter> = emptyList()
 )

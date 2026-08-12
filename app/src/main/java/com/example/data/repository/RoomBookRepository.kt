@@ -54,6 +54,7 @@ class RoomBookRepository @Inject constructor(
             audioPositionMs = progress?.audioPositionMs ?: 0L,
             audiobookStatus = audiobookGeneration?.status ?: "NONE",
             audiobookProgressPercent = audiobookGeneration?.progressPercent ?: 0,
+            audiobookEstimatedBytes = audiobookGeneration?.estimatedBytes ?: 0L,
             isFavorite = book.isFavorite,
             chapters = sections.sortedBy { it.section.chapterNumber }.map { sectionWithChunks ->
                 Chapter(

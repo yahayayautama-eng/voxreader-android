@@ -651,7 +651,12 @@ class TtsManager @Inject constructor(
 
     private fun persistGeneratedProgress(chapter: GeneratedChapterAudio, positionMs: Long) {
         scope.launch(Dispatchers.IO) {
-            bookDao.updateAudioProgress(chapter.nowPlaying.bookId, chapter.nowPlaying.chapterIndex, positionMs.coerceAtLeast(0L))
+            bookDao.updateAudioProgress(
+                bookId = chapter.nowPlaying.bookId,
+                chapterIndex = chapter.nowPlaying.chapterIndex,
+                position = cueIndex(chapter, positionMs),
+                positionMs = positionMs.coerceAtLeast(0L)
+            )
         }
     }
 

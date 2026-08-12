@@ -52,10 +52,11 @@ interface BookDao {
     @Query("UPDATE reading_progress SET currentChapterIndex = :chapterIndex, currentPosition = :position, lastUpdatedAt = :updatedAt WHERE bookId = :bookId")
     suspend fun updateReadingProgress(bookId: String, chapterIndex: Int, position: Int, updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE reading_progress SET currentChapterIndex = :chapterIndex, audioPositionMs = :positionMs, lastUpdatedAt = :updatedAt WHERE bookId = :bookId")
+    @Query("UPDATE reading_progress SET currentChapterIndex = :chapterIndex, currentPosition = :position, audioPositionMs = :positionMs, lastUpdatedAt = :updatedAt WHERE bookId = :bookId")
     suspend fun updateAudioProgress(
         bookId: String,
         chapterIndex: Int,
+        position: Int,
         positionMs: Long,
         updatedAt: Long = System.currentTimeMillis()
     )

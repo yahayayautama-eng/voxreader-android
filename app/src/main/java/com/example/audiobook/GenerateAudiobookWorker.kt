@@ -35,16 +35,19 @@ class GenerateAudiobookWorker @AssistedInject constructor(
             book.sections.sortedBy { it.section.chapterNumber }.forEachIndexed { chapterIndex, section ->
                 if (isStopped) return@withContext Result.failure()
                 val existing = audiobookDao.getChapterAudio(bookId).firstOrNull { it.chapterIndex == chapterIndex }
-                if (existing?.status == READY && existing.filePath?.let(::File)?.exists() == true) return@forEachIndexed
+                if (existing?.status == READY && existing.filePath?.let { path -> path.endsWith(".m4a", ignoreCase = true) && File(path).isFile } == true) return@forEachIndexed
                 audiobookDao.upsertChapterAudio(ChapterAudioEntity(bookId, chapterIndex, GENERATING))
                 val segments = section.chunks.sortedBy { it.sequenceNumber }.mapNotNull { chunk ->
                     generator.synthesize(chunk.text, generation.generationSpeed, generation.voiceId)
                 }
                 if (segments.isEmpty()) return@withContext Result.retry()
-                val temp = audioFileStore.tempChapterFile(bookId, chapterIndex)
-                val cues = WavChapterAssembler.assemble(segments, temp)
+                val wav = audioFileStore.tempWavChapterFile(bookId, chapterIndex)
+                val encoded = audioFileStore.tempChapterFile(bookId, chapterIndex)
+                val cues = WavChapterAssembler.assemble(segments, wav)
+                AacChapterEncoder.encodeWav(wav, encoded)
                 val final = audioFileStore.chapterFile(bookId, chapterIndex)
-                audioFileStore.commit(temp, final)
+                audioFileStore.commit(encoded, final)
+                wav.delete()
                 segments.forEach(File::delete)
                 audiobookDao.updateChapterAudio(bookId, chapterIndex, READY, final.absolutePath, cues.last().endMs, final.length(), audioFileStore.checksum(final), cues.size)
                 val completed = chapterIndex + 1

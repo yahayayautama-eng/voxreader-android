@@ -16,13 +16,16 @@ class AudioFileStore @Inject constructor(
     fun bookDirectory(bookId: String): File = File(root, bookId).also { it.mkdirs() }
 
     fun chapterFile(bookId: String, chapterIndex: Int): File =
-        File(bookDirectory(bookId), "chapter-${chapterIndex.toString().padStart(3, '0')}.wav")
+        File(bookDirectory(bookId), "chapter-${chapterIndex.toString().padStart(3, '0')}.m4a")
 
     fun tempChapterFile(bookId: String, chapterIndex: Int): File =
-        File(bookDirectory(bookId), "chapter-${chapterIndex.toString().padStart(3, '0')}.tmp")
+        File(bookDirectory(bookId), "chapter-${chapterIndex.toString().padStart(3, '0')}.m4a.tmp")
+
+    fun tempWavChapterFile(bookId: String, chapterIndex: Int): File =
+        File(bookDirectory(bookId), "chapter-${chapterIndex.toString().padStart(3, '0')}.wav.tmp")
 
     fun commit(temp: File, final: File) {
-        require(temp.exists() && temp.length() > 44) { "Generated audio is empty" }
+        require(temp.exists() && temp.length() > 0) { "Generated audio is empty" }
         final.delete()
         check(temp.renameTo(final)) { "Could not commit generated audio" }
     }
@@ -36,7 +39,7 @@ class AudioFileStore @Inject constructor(
 }
 
 object StorageEstimator {
-    fun estimateAudioBytes(textBytes: Long, bitrateBitsPerSecond: Long = 48_000L): Long {
+    fun estimateAudioBytes(textBytes: Long, bitrateBitsPerSecond: Long = 64_000L): Long {
         val estimatedSeconds = (textBytes / 14L).coerceAtLeast(1L)
         return estimatedSeconds * bitrateBitsPerSecond / 8L
     }

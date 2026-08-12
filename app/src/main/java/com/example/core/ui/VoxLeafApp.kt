@@ -121,6 +121,7 @@ fun VoxLeafApp(
                             )
                         }
                         if (isTopLevelDestination && !useRail) {
+                            Spacer(modifier = androidx.compose.ui.Modifier.height(4.dp))
                             VoxLeafBottomBar(navController = navController, currentRoute = currentRoute)
                         }
                     }
