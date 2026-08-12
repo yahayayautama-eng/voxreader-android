@@ -180,13 +180,17 @@ class PlaybackService : Service() {
             val ready = progress?.let { audiobookDao.getChapterAudio(it.bookId) }
                 ?.filter { it.status == "READY" && it.filePath?.let { path -> File(path) }.isValidAudioFile() }
                 ?.associateBy { it.chapterIndex }
+            val cueStarts = if (progress != null && ready != null) {
+                ready.keys.associateWith { index -> audiobookDao.getCues(progress.bookId, index).map { it.startMs } }
+            } else emptyMap()
             val chapters = if (book != null && ready != null) {
                 book.chapters.mapIndexedNotNull { index, chapter ->
                     ready[index]?.filePath?.let { path ->
                         GeneratedChapterAudio(
                             nowPlaying = NowPlaying(book.id, book.title, index, chapter.title),
                             filePath = path,
-                            cueCount = ready[index]?.segmentCount ?: 0
+                            cueCount = ready[index]?.segmentCount ?: 0,
+                            cueStartsMs = cueStarts[index].orEmpty()
                         )
                     }
                 }

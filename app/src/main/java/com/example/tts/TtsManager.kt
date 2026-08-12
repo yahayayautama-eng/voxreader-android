@@ -43,7 +43,8 @@ data class TtsChapter(val nowPlaying: NowPlaying, val text: String)
 data class GeneratedChapterAudio(
     val nowPlaying: NowPlaying,
     val filePath: String,
-    val cueCount: Int
+    val cueCount: Int,
+    val cueStartsMs: List<Long> = emptyList()
 )
 
 internal fun nextPlayableChapter(
@@ -157,7 +158,9 @@ class TtsManager @Inject constructor(
 
     fun seekToSentence(sentenceIndex: Int) {
         if (generatedMode) {
-            player?.seekTo((sentenceIndex.coerceAtLeast(0) * 10_000))
+            val chapter = generatedQueue.getOrNull(generatedQueueIndex)
+            val position = chapter?.cueStartsMs?.getOrNull(sentenceIndex.coerceAtLeast(0)) ?: (sentenceIndex.coerceAtLeast(0) * 10_000L)
+            player?.seekTo(position.toInt())
             return
         }
         if (currentSentences.isEmpty()) return
@@ -593,7 +596,7 @@ class TtsManager @Inject constructor(
                     isSpeaking = true,
                     isPaused = false,
                     isPreparing = false,
-                    currentSentenceIndex = 0,
+                    currentSentenceIndex = cueIndex(chapter, startPositionMs),
                     totalSentences = chapter.cueCount,
                     nowPlaying = chapter.nowPlaying
                 )
@@ -629,8 +632,21 @@ class TtsManager @Inject constructor(
                 val chapter = generatedQueue.getOrNull(generatedQueueIndex) ?: continue
                 val positionMs = player?.let { runCatching { it.currentPosition.toLong() }.getOrNull() } ?: continue
                 persistGeneratedProgress(chapter, positionMs)
+                _state.update { it.copy(currentSentenceIndex = cueIndex(chapter, positionMs)) }
             }
         }
+    }
+
+    private fun cueIndex(chapter: GeneratedChapterAudio, positionMs: Long): Int {
+        val starts = chapter.cueStartsMs
+        if (starts.isEmpty()) return 0
+        var low = 0
+        var high = starts.lastIndex
+        while (low <= high) {
+            val middle = (low + high) ushr 1
+            if (starts[middle] <= positionMs) low = middle + 1 else high = middle - 1
+        }
+        return high.coerceIn(0, starts.lastIndex)
     }
 
     private fun persistGeneratedProgress(chapter: GeneratedChapterAudio, positionMs: Long) {

@@ -315,16 +315,18 @@ class ReaderViewModel @Inject constructor(
             .associateBy { it.chapterIndex }
         val playableChapters = book.chapters.indices.filter { generated[it] != null }
         if (playableChapters.size == book.chapters.count { it.content.isNotBlank() }) {
+            val generatedChapters = book.chapters.mapIndexedNotNull { index, chapter ->
+                generated[index]?.let { audio ->
+                    GeneratedChapterAudio(
+                        nowPlaying = NowPlaying(book.id, book.title, index, chapter.title),
+                        filePath = audio.filePath!!,
+                        cueCount = audio.segmentCount,
+                        cueStartsMs = audiobookDao.getCues(book.id, index).map { it.startMs }
+                    )
+                }
+            }
             ttsManager.playGeneratedChapters(
-                chapters = book.chapters.mapIndexedNotNull { index, chapter ->
-                    generated[index]?.let { audio ->
-                        GeneratedChapterAudio(
-                            nowPlaying = NowPlaying(book.id, book.title, index, chapter.title),
-                            filePath = audio.filePath!!,
-                            cueCount = audio.segmentCount
-                        )
-                    }
-                },
+                chapters = generatedChapters,
                 startChapterIndex = chapterIndex,
                 startPositionMs = audiobookDao.getCues(book.id, chapterIndex)
                     .getOrNull(sentenceIndex)?.startMs ?: 0L
