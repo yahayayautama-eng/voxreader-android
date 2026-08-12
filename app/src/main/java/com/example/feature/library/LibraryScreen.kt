@@ -318,6 +318,17 @@ private fun NowListeningCard(book: Book, onClick: () -> Unit) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+                if (book.audiobookStatus != "READY" && book.audiobookStatus != "NONE") {
+                    Text(
+                        when (book.audiobookStatus) {
+                            "CONVERTING" -> "Creating audiobook · ${book.audiobookProgressPercent}%"
+                            "FAILED" -> "Audiobook conversion failed"
+                            else -> "Audiobook conversion queued"
+                        },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (book.audiobookStatus == "FAILED") MaterialTheme.colorScheme.error else SignalOrange
+                    )
+                }
                 Spacer(modifier = Modifier.height(10.dp))
                 LinearProgressIndicator(
                     progress = { progress },
