@@ -7,6 +7,7 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.PowerManager
+import com.example.data.local.dao.BookDao
 import com.example.data.local.datastore.AppSettingsManager
 import com.example.playback.PlaybackService
 import dagger.Lazy
@@ -83,7 +84,8 @@ class TtsManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val kokoroEngine: Lazy<KokoroNativeEngine>,
     private val edgeEngine: Lazy<EdgeTtsEngine>,
-    private val appSettingsManager: AppSettingsManager
+    private val appSettingsManager: AppSettingsManager,
+    private val bookDao: BookDao
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(TtsState())
@@ -95,6 +97,7 @@ class TtsManager @Inject constructor(
     private var generatedQueue: List<GeneratedChapterAudio> = emptyList()
     private var generatedQueueIndex = -1
     private var generatedMode = false
+    private var generatedProgressJob: Job? = null
     private var player: MediaPlayer? = null
     private var playerPrepared = false
     private var currentAudioFile: java.io.File? = null
@@ -174,7 +177,9 @@ class TtsManager @Inject constructor(
         clearBufferedAudio()
         if (audioManager.requestAudioFocus(focusRequest) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return
         context.startForegroundService(Intent(context, PlaybackService::class.java))
+        persistGeneratedProgress(chapters[requested], startPositionMs)
         startGeneratedChapter(startPositionMs)
+        startGeneratedProgressPersistence()
     }
 
     private fun startSentenceSession(sentences: List<String>, startIndex: Int, nowPlaying: NowPlaying?) {
@@ -263,6 +268,8 @@ class TtsManager @Inject constructor(
         generatedQueue = emptyList()
         generatedQueueIndex = -1
         generatedMode = false
+        generatedProgressJob?.cancel()
+        generatedProgressJob = null
         sleepTimerJob?.cancel()
         sleepTimerJob = null
         audioManager.abandonAudioFocusRequest(focusRequest)
@@ -594,6 +601,7 @@ class TtsManager @Inject constructor(
         }
         nextPlayer.setOnCompletionListener {
             if (generation != playbackGeneration || !generatedMode) return@setOnCompletionListener
+            persistGeneratedProgress(chapter, 0L)
             generatedQueueIndex += 1
             if (generatedQueueIndex < generatedQueue.size) {
                 stopPlayer()
@@ -610,6 +618,25 @@ class TtsManager @Inject constructor(
         }
         _state.update { it.copy(isPreparing = true, isSpeaking = false, isPaused = false, nowPlaying = chapter.nowPlaying) }
         nextPlayer.prepareAsync()
+    }
+
+    private fun startGeneratedProgressPersistence() {
+        generatedProgressJob?.cancel()
+        val generation = playbackGeneration
+        generatedProgressJob = scope.launch(Dispatchers.IO) {
+            while (generatedMode && generation == playbackGeneration) {
+                delay(GENERATED_PROGRESS_INTERVAL_MS)
+                val chapter = generatedQueue.getOrNull(generatedQueueIndex) ?: continue
+                val positionMs = player?.let { runCatching { it.currentPosition.toLong() }.getOrNull() } ?: continue
+                persistGeneratedProgress(chapter, positionMs)
+            }
+        }
+    }
+
+    private fun persistGeneratedProgress(chapter: GeneratedChapterAudio, positionMs: Long) {
+        scope.launch(Dispatchers.IO) {
+            bookDao.updateAudioProgress(chapter.nowPlaying.bookId, chapter.nowPlaying.chapterIndex, positionMs.coerceAtLeast(0L))
+        }
     }
 
     private fun clearBufferedAudio() {
@@ -637,5 +664,6 @@ class TtsManager @Inject constructor(
     private companion object {
         const val TARGET_BUFFERED_SENTENCES = 4
         const val BUFFER_CHECK_DELAY_MS = 50L
+        const val GENERATED_PROGRESS_INTERVAL_MS = 1_000L
     }
 }

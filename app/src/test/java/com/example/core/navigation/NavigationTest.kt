@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.navigation.compose.ComposeNavigator
 import androidx.navigation.testing.TestNavHostController
 import androidx.test.core.app.ApplicationProvider
+import com.example.data.local.dao.BookDao
 import com.example.data.local.datastore.AppSettingsManager
 import com.example.feature.library.LibraryScreenContent
 import com.example.feature.library.LibraryUiState
@@ -19,6 +20,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import io.mockk.mockk
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
@@ -41,7 +43,13 @@ class NavigationTest {
             override fun get(): EdgeTtsEngine = error("This navigation test does not synthesize speech")
         }
         val appSettingsManager = AppSettingsManager(ApplicationProvider.getApplicationContext())
-        val ttsManager = TtsManager(ApplicationProvider.getApplicationContext(), unusedNativeEngine, unusedEdgeEngine, appSettingsManager)
+        val ttsManager = TtsManager(
+            ApplicationProvider.getApplicationContext(),
+            unusedNativeEngine,
+            unusedEdgeEngine,
+            appSettingsManager,
+            mockk<BookDao>(relaxed = true)
+        )
 
         composeTestRule.setContent {
             navController = TestNavHostController(ApplicationProvider.getApplicationContext())
