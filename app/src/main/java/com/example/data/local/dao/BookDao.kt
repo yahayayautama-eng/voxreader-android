@@ -52,18 +52,6 @@ interface BookDao {
     @Query("UPDATE reading_progress SET currentChapterIndex = :chapterIndex, currentPosition = :position, lastUpdatedAt = :updatedAt WHERE bookId = :bookId")
     suspend fun updateReadingProgress(bookId: String, chapterIndex: Int, position: Int, updatedAt: Long = System.currentTimeMillis())
 
-    @Query("UPDATE reading_progress SET currentChapterIndex = :chapterIndex, currentPosition = :position, audioPositionMs = :positionMs, lastUpdatedAt = :updatedAt WHERE bookId = :bookId")
-    suspend fun updateAudioProgress(
-        bookId: String,
-        chapterIndex: Int,
-        position: Int,
-        positionMs: Long,
-        updatedAt: Long = System.currentTimeMillis()
-    )
-
-    @Query("SELECT * FROM reading_progress WHERE audioPositionMs > 0 ORDER BY lastUpdatedAt DESC LIMIT 1")
-    suspend fun getLatestAudioProgress(): ReadingProgressEntity?
-
     @Query("UPDATE books SET title = :title, author = :author, description = :description, genre = :genre WHERE id = :bookId")
     suspend fun updateBookMetadata(
         bookId: String,
