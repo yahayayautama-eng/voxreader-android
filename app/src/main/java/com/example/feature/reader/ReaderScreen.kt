@@ -49,6 +49,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
+import com.example.ui.theme.Eyebrow
+import kotlin.math.roundToInt
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -203,6 +206,7 @@ fun ReaderScreen(
                 onNextSentence = { viewModel.handleAction(ReaderUiAction.OnNextSentence) },
                 onSkipBack = { viewModel.handleAction(ReaderUiAction.OnSkipBack) },
                 onSkipForward = { viewModel.handleAction(ReaderUiAction.OnSkipForward) },
+                onSeekToSentence = { viewModel.handleAction(ReaderUiAction.OnSeekToSentence(it)) },
                 onSleepTimer = { showSleepTimerDialog = true },
                 onVoiceSettings = { showSettingsSheet = true },
                 onBookmark = { showBookmarkDialog = true }
@@ -687,24 +691,71 @@ private fun FlowingChapterText(
 /** Keeps the spoken line off the very top edge so the reader can see what came before it. */
 private const val SPOKEN_LINE_TOP_INSET_PX = 220
 
-private val WaveformBarHeights = listOf(8, 14, 20, 12, 18, 10, 15)
+/** Narration pace used for time estimates; the speech-rate multiplier scales it. */
+private const val SCRUBBER_WORDS_PER_MINUTE = 155f
 
+private fun formatClock(seconds: Float): String {
+    val total = seconds.toInt().coerceAtLeast(0)
+    return "%d:%02d".format(total / 60, total % 60)
+}
+
+/**
+ * Draggable position within the chapter, with a running time readout.
+ *
+ * Position is measured in sentences rather than milliseconds because that is the only unit that
+ * exists while a chapter is being streamed — there is no rendered file to ask for a duration. The
+ * clock is therefore an estimate derived from word count at the current speech rate, and is labelled
+ * as such. Seeking is exact regardless: each stop on the slider is a real sentence boundary.
+ */
 @Composable
-private fun WaveformProgress(progress: Float, dimColor: Color, modifier: Modifier = Modifier) {
-    val filled = (progress * WaveformBarHeights.size).toInt().coerceIn(0, WaveformBarHeights.size)
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(3.dp),
-        verticalAlignment = Alignment.Bottom
-    ) {
-        WaveformBarHeights.forEachIndexed { index, height ->
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height(height.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(if (index < filled) SignalOrange else dimColor)
-            )
+private fun ChapterScrubber(
+    uiState: ReaderUiState,
+    textColor: Color,
+    onSeekToSentence: (Int) -> Unit
+) {
+    val total = uiState.textChunks.size
+    if (total == 0) return
+
+    // Cumulative start time per sentence, recomputed only when the chapter or the rate changes.
+    val (starts, duration) = remember(uiState.textChunks, uiState.ttsRate) {
+        val wordsPerSecond = (SCRUBBER_WORDS_PER_MINUTE * uiState.ttsRate.coerceAtLeast(0.1f)) / 60f
+        var elapsed = 0f
+        val offsets = FloatArray(total)
+        uiState.textChunks.forEachIndexed { index, chunk ->
+            offsets[index] = elapsed
+            elapsed += chunk.text.split(Regex("\\s+")).count { it.isNotBlank() } / wordsPerSecond
+        }
+        offsets to elapsed
+    }
+
+    // While dragging, the thumb follows the finger rather than the voice; releasing commits the seek.
+    var scrubPosition by remember { mutableStateOf<Float?>(null) }
+    val lastIndex = (total - 1).coerceAtLeast(0)
+    val position = scrubPosition ?: uiState.currentSentenceIndex.coerceIn(0, lastIndex).toFloat()
+    val elapsedSeconds = starts.getOrElse(position.roundToInt().coerceIn(0, lastIndex)) { 0f }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Slider(
+            value = position,
+            onValueChange = { scrubPosition = it },
+            onValueChangeFinished = {
+                scrubPosition?.let { onSeekToSentence(it.roundToInt().coerceIn(0, lastIndex)) }
+                scrubPosition = null
+            },
+            valueRange = 0f..lastIndex.toFloat().coerceAtLeast(1f),
+            colors = SliderDefaults.colors(
+                thumbColor = SignalOrange,
+                activeTrackColor = SignalOrange,
+                inactiveTrackColor = textColor.copy(alpha = 0.18f)
+            ),
+            modifier = Modifier.fillMaxWidth().testTag("reader_scrubber")
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(formatClock(elapsedSeconds), style = Eyebrow, color = textColor.copy(alpha = 0.55f))
+            Text("~${formatClock(duration)}", style = Eyebrow, color = textColor.copy(alpha = 0.55f))
         }
     }
 }
@@ -721,6 +772,7 @@ fun ReaderTtsBottomBar(
     onNextSentence: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
+    onSeekToSentence: (Int) -> Unit,
     onSleepTimer: () -> Unit,
     onVoiceSettings: () -> Unit,
     onBookmark: () -> Unit
@@ -760,13 +812,12 @@ fun ReaderTtsBottomBar(
                     )
                 }
             }
-            Spacer(modifier = Modifier.height(10.dp))
-            WaveformProgress(
-                progress = (uiState.currentSentenceIndex + 1).toFloat() / uiState.textChunks.size.coerceAtLeast(1),
-                dimColor = textColor.copy(alpha = 0.2f),
-                modifier = Modifier.fillMaxWidth()
+            ChapterScrubber(
+                uiState = uiState,
+                textColor = textColor,
+                onSeekToSentence = onSeekToSentence
             )
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(6.dp))
             // Playback controls
             Row(
                 modifier = Modifier.fillMaxWidth(),
