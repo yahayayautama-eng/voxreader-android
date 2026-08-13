@@ -3,8 +3,6 @@ package com.example.feature.reader
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.data.local.dao.AudiobookDao
-import com.example.audiobook.AudiobookGenerationCoordinator
-import com.example.audiobook.StorageEstimator
 import com.example.data.local.datastore.AppSettingsManager
 import com.example.domain.repository.BookRepository
 import com.example.domain.repository.Bookmark
@@ -25,7 +23,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -38,8 +35,7 @@ class ReaderViewModel @Inject constructor(
     private val ttsManager: TtsManager,
     private val appSettingsManager: AppSettingsManager,
     private val listeningTracker: ListeningTracker,
-    private val audiobookDao: AudiobookDao,
-    private val audiobookGenerationCoordinator: AudiobookGenerationCoordinator
+    private val audiobookDao: AudiobookDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReaderUiState())
@@ -48,7 +44,6 @@ class ReaderViewModel @Inject constructor(
     private var sentences: List<String> = emptyList()
     private var highlightsJob: Job? = null
     private var allHighlights: List<Highlight> = emptyList()
-    private var generationPlaybackJob: Job? = null
 
     init {
         observeTtsState()
@@ -317,41 +312,31 @@ class ReaderViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Starts playback now, whatever state generation is in.
+     *
+     * Synthesis runs faster than speech does, so waiting for a whole book to render before playing
+     * any of it only ever costs the listener time — a long book meant hours of staring at a progress
+     * bar. Pre-rendered chapter audio is still preferred when it happens to already exist, because
+     * it is free to play and seeks precisely; otherwise the chapter is streamed sentence by sentence
+     * with the buffer running ahead of the voice.
+     */
     private suspend fun playBook(book: com.example.domain.repository.Book, chapterIndex: Int, sentenceIndex: Int) {
-        if (book.audiobookStatus != "READY") {
-            if (book.audiobookStatus == "NONE") {
-                audiobookGenerationCoordinator.enqueue(
-                    book.id,
-                    book.chapters.size,
-                    estimatedBytes = StorageEstimator.estimateAudioBytes(book.chapters.sumOf { it.content.toByteArray().size.toLong() })
-                )
-            } else {
-                audiobookGenerationCoordinator.ensureScheduled(book.id)
-            }
-            val nowPlaying = NowPlaying(book.id, book.title, chapterIndex, book.chapters.getOrNull(chapterIndex)?.title.orEmpty())
-            ttsManager.showAudiobookConversion(nowPlaying, "Creating audiobook before playback starts…")
-            generationPlaybackJob?.cancel()
-            generationPlaybackJob = viewModelScope.launch {
-                val generation = audiobookDao.observeGeneration(book.id)
-                    .filterNotNull()
-                    .first { it.status == "READY" || it.status == "FAILED" || it.status == "CANCELLED" }
-                if (generation.status == "READY") {
-                    bookRepository.getBookById(book.id)?.let { latest -> playBook(latest, chapterIndex, sentenceIndex) }
-                } else {
-                    ttsManager.showAudiobookConversion(nowPlaying, "Audiobook conversion ${generation.status.lowercase()}. Retry from book details.")
-                }
-            }
-            return
-        }
         val generated = audiobookDao.getChapterAudio(book.id)
             .filter { it.status == "READY" && it.filePath?.let { path -> File(path).exists() } == true }
             .associateBy { it.chapterIndex }
-        val playableChapters = book.chapters.indices.filter { generated[it] != null }
-        if (playableChapters.size == book.chapters.count { it.content.isNotBlank() }) {
-            val generatedChapters = book.chapters.mapIndexedNotNull { index, chapter ->
+
+        // Rendered audio is only usable as a queue from the requested chapter onwards; the first gap
+        // is where streaming has to take over anyway.
+        val renderedRun = generateSequence(chapterIndex) { it + 1 }
+            .takeWhile { it <= book.chapters.lastIndex && generated[it] != null }
+            .toList()
+
+        if (renderedRun.isNotEmpty()) {
+            val generatedChapters = renderedRun.mapNotNull { index ->
                 generated[index]?.let { audio ->
                     GeneratedChapterAudio(
-                        nowPlaying = NowPlaying(book.id, book.title, index, chapter.title),
+                        nowPlaying = NowPlaying(book.id, book.title, index, book.chapters[index].title),
                         filePath = audio.filePath!!,
                         cueCount = audio.segmentCount,
                         cueStartsMs = audiobookDao.getCues(book.id, index).map { it.startMs }
@@ -364,13 +349,19 @@ class ReaderViewModel @Inject constructor(
                 startPositionMs = audiobookDao.getCues(book.id, chapterIndex)
                     .getOrNull(sentenceIndex)?.startMs ?: 0L
             )
-        } else {
-            audiobookGenerationCoordinator.regenerate(book.id, book.chapters.size)
-            ttsManager.showAudiobookConversion(
-                NowPlaying(book.id, book.title, chapterIndex, book.chapters.getOrNull(chapterIndex)?.title.orEmpty()),
-                "Rebuilding missing audiobook audio before playback starts…"
-            )
+            return
         }
+
+        ttsManager.speakChapters(
+            chapters = book.chapters.mapIndexed { index, chapter ->
+                TtsChapter(
+                    nowPlaying = NowPlaying(book.id, book.title, index, chapter.title),
+                    text = chapter.content
+                )
+            },
+            startChapterIndex = chapterIndex,
+            startSentenceIndex = sentenceIndex
+        )
     }
 
     /**

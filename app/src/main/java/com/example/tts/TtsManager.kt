@@ -506,7 +506,10 @@ class TtsManager @Inject constructor(
 
     private fun startBufferedPlaybackIfReady(generation: Int) {
         if (generation != playbackGeneration || player != null || _state.value.isPaused) return
-        val initialTarget = minOf(TARGET_BUFFERED_SENTENCES, currentSentences.size - nextSentenceToPlay)
+        // Starting is gated on a couple of sentences, not on the full buffer: both engines synthesize
+        // faster than speech is spoken, so the buffer keeps growing on its own once playback is under
+        // way. Waiting for the whole target before the first word only ever added silence at the front.
+        val initialTarget = minOf(START_PLAYBACK_AFTER_SENTENCES, currentSentences.size - nextSentenceToPlay)
         if (waitingForInitialBuffer && bufferedAudio.size < initialTarget) return
         val audioFile = bufferedAudio.remove(nextSentenceToPlay) ?: return
         waitingForInitialBuffer = false
@@ -714,7 +717,17 @@ class TtsManager @Inject constructor(
     }
 
     private companion object {
-        const val TARGET_BUFFERED_SENTENCES = 4
+        /**
+         * How far ahead of the voice the buffer runs. Deep on purpose: a sentence is only a few
+         * seconds of audio, so a shallow buffer leaves playback one slow synthesis away from a gap —
+         * a dropped network response on the online engine, or a thermally throttled core on the
+         * offline one. Two dozen sentences is a couple of minutes of runway and costs a few MB of
+         * short WAVs, which is a good trade against stuttering.
+         */
+        const val TARGET_BUFFERED_SENTENCES = 24
+
+        /** Enough to cover the gap while the next few synthesize; see startBufferedPlaybackIfReady. */
+        const val START_PLAYBACK_AFTER_SENTENCES = 2
         const val BUFFER_CHECK_DELAY_MS = 50L
         const val GENERATED_PROGRESS_INTERVAL_MS = 1_000L
     }
