@@ -35,5 +35,7 @@ object TtsTextParser {
         return chunks
     }
 
-    private const val MAX_TTS_CHARS = 160
+    // Both engines take a full sentence fine; this only guards against pathological input
+    // (a run-on with no punctuation) so the split still exists as a safety net, not a norm.
+    private const val MAX_TTS_CHARS = 500
 }

@@ -64,19 +64,34 @@ class ReaderViewModel @Inject constructor(
     private fun observeTtsState() {
         viewModelScope.launch {
             ttsManager.state.collect { ttsState ->
+                // TtsManager is a singleton shared across every open book, so its transport
+                // flags belong to whatever book is actually playing — not necessarily this
+                // screen's book. Mirroring them unconditionally made a fresh book's play button
+                // control whatever was already playing instead of starting itself.
+                val ownsPlayback = ttsState.nowPlaying?.bookId == _uiState.value.book?.id
                 _uiState.update {
                     it.copy(
-                        isTtsPlaying = ttsState.isSpeaking,
-                        isTtsPaused = ttsState.isPaused,
-                        isTtsPreparing = ttsState.isPreparing,
-                        currentSentenceIndex = ttsState.currentSentenceIndex,
+                        isTtsPlaying = ownsPlayback && ttsState.isSpeaking,
+                        isTtsPaused = ownsPlayback && ttsState.isPaused,
+                        isTtsPreparing = ownsPlayback && ttsState.isPreparing,
+                        currentSentenceIndex = if (ownsPlayback) ttsState.currentSentenceIndex else it.currentSentenceIndex,
                         ttsRate = ttsState.speechRate,
                         ttsEngineId = ttsState.engineId,
-                        ttsErrorMessage = ttsState.errorMessage,
+                        ttsErrorMessage = if (ownsPlayback) ttsState.errorMessage else it.ttsErrorMessage,
                         sleepTimerMinutes = ttsState.sleepTimerMinutes
                     )
                 }
-                followPlaybackChapter(ttsState.nowPlaying)
+                if (ownsPlayback) {
+                    followPlaybackChapter(ttsState.nowPlaying)
+                    // Hands-free listening never calls the manual seek/skip paths that used to be
+                    // the only place progress got saved, so an autonomous sentence advance (the
+                    // common case) was never persisted — resuming after a kill landed wherever the
+                    // listener last tapped, not where they last heard.
+                    val book = _uiState.value.book
+                    if (book != null) {
+                        saveProgress(book.id, ttsState.nowPlaying?.chapterIndex ?: _uiState.value.currentChapterIndex, ttsState.currentSentenceIndex)
+                    }
+                }
             }
         }
     }

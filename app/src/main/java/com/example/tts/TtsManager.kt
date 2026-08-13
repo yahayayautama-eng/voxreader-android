@@ -107,7 +107,10 @@ class TtsManager @Inject constructor(
         .setAudioAttributes(audioAttributes)
         .setOnAudioFocusChangeListener { change ->
             when (change) {
-                AudioManager.AUDIOFOCUS_LOSS -> stop()
+                // Permanent loss still means "someone else is using audio now", not "end the
+                // book" — stop() used to wipe chapterQueue/nowPlaying/position, so a phone call
+                // permanently threw away the listener's place mid-book.
+                AudioManager.AUDIOFOCUS_LOSS,
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT,
                 AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK -> {
                     if (_state.value.isSpeaking) {

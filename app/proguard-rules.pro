@@ -4,11 +4,9 @@
 -keepattributes SourceFile,LineNumberTable,*Annotation*,Signature,InnerClasses,EnclosingMethod
 -renamesourcefileattribute SourceFile
 
-# JNI — kotlinNativeEngine's external functions are called by their mangled
-# Java_com_example_tts_KokoroNativeEngine_* symbol names from kokoro_bridge.cpp.
--keep class com.example.tts.KokoroNativeEngine {
-    native <methods>;
-}
+# sherpa-onnx binds its JNI methods by class/method name reflectively; R8 renaming
+# breaks the native binding at runtime with no compile-time signal.
+-keep class com.k2fsa.sherpa.onnx.** { *; }
 
 # kotlinx.serialization — Navigation Compose type-safe routes (Screen sealed
 # interface) are (de)serialized by class name; VoxLeafApp.kt also matches
