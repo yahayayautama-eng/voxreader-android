@@ -6,7 +6,9 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.graphics.BitmapFactory
 import android.graphics.drawable.Icon
+import android.media.MediaMetadata
 import android.media.session.MediaSession
 import android.media.session.PlaybackState
 import android.os.IBinder
@@ -44,6 +46,10 @@ class PlaybackService : Service() {
     private var collectJob: Job? = null
     private lateinit var mediaSession: MediaSession
     private val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
+    // Decoding a cover file is a disk read; the notification rebuilds on every TtsState tick, so
+    // caching by path avoids re-decoding the same bitmap on every sentence advance.
+    private var lastCoverPath: String? = null
+    private var lastCoverBitmap: android.graphics.Bitmap? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -93,6 +99,17 @@ class PlaybackService : Service() {
     }
 
     private fun updateMediaSession(state: TtsState) {
+        mediaSession.setMetadata(
+            MediaMetadata.Builder()
+                .putString(MediaMetadata.METADATA_KEY_TITLE, state.nowPlaying?.chapterTitle ?: "Vox Reader")
+                .putString(MediaMetadata.METADATA_KEY_ARTIST, state.nowPlaying?.bookTitle ?: "")
+                .apply {
+                    coverBitmap(state.nowPlaying?.coverImagePath)?.let {
+                        putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, it)
+                    }
+                }
+                .build()
+        )
         mediaSession.setPlaybackState(
             PlaybackState.Builder()
                 .setActions(
@@ -125,6 +142,15 @@ class PlaybackService : Service() {
         )
     ).build()
 
+    private fun coverBitmap(path: String?): android.graphics.Bitmap? {
+        if (path == null) return null
+        if (path != lastCoverPath) {
+            lastCoverBitmap = runCatching { BitmapFactory.decodeFile(path) }.getOrNull()
+            lastCoverPath = path
+        }
+        return lastCoverBitmap
+    }
+
     private fun buildNotification(state: TtsState): Notification {
         val contentIntent = PendingIntent.getActivity(
             this,
@@ -134,10 +160,15 @@ class PlaybackService : Service() {
         )
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
-            .setContentTitle("Vox Reader")
+            .apply { coverBitmap(state.nowPlaying?.coverImagePath)?.let { setLargeIcon(it) } }
+            .setContentTitle(state.nowPlaying?.bookTitle ?: "Vox Reader")
             .setContentText(
-                if (state.totalSentences > 0) "Sentence ${state.currentSentenceIndex + 1} of ${state.totalSentences}"
-                else "Preparing offline audio…"
+                when {
+                    state.nowPlaying != null && state.totalSentences > 0 ->
+                        "${state.nowPlaying.chapterTitle} · sentence ${state.currentSentenceIndex + 1} of ${state.totalSentences}"
+                    state.nowPlaying != null -> state.nowPlaying.chapterTitle
+                    else -> "Preparing offline audio…"
+                }
             )
             .setContentIntent(contentIntent)
             .setOngoing(state.isSpeaking || state.isPreparing)

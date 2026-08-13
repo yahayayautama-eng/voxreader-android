@@ -330,7 +330,7 @@ class ReaderViewModel @Inject constructor(
         ttsManager.speakChapters(
             chapters = book.chapters.mapIndexed { index, chapter ->
                 TtsChapter(
-                    nowPlaying = NowPlaying(book.id, book.title, index, chapter.title),
+                    nowPlaying = NowPlaying(book.id, book.title, index, chapter.title, book.coverImagePath),
                     text = chapter.content
                 )
             },

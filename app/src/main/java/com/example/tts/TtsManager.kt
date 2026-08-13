@@ -34,7 +34,8 @@ data class NowPlaying(
     val bookId: String,
     val bookTitle: String,
     val chapterIndex: Int,
-    val chapterTitle: String
+    val chapterTitle: String,
+    val coverImagePath: String? = null
 )
 
 data class TtsChapter(val nowPlaying: NowPlaying, val text: String)
@@ -384,9 +385,20 @@ class TtsManager @Inject constructor(
                 }
                 val index = nextSentenceToBuffer
                 val engine = activeEngine()
-                val audioFile = runCatching {
+                var audioFile = runCatching {
                     engine.synthesize(currentSentences[index], _state.value.selectedVoicePath, _state.value.speechRate)
                 }.getOrNull()
+                // A network drop mid-chapter used to just kill playback outright. The offline voice
+                // is always bundled, so falling back to it for this one sentence keeps audio going
+                // instead of stopping a listener because Wi-Fi hiccuped for a few seconds; playback
+                // stays on the online voice otherwise, this doesn't switch the persisted engine.
+                var usedFallback = false
+                if (audioFile == null && engine.requiresNetwork) {
+                    audioFile = runCatching {
+                        offlineEngine.get().synthesize(currentSentences[index], SherpaTtsEngine.DEFAULT_VOICE, _state.value.speechRate)
+                    }.getOrNull()
+                    usedFallback = audioFile != null
+                }
                 if (generation != playbackGeneration) {
                     audioFile?.delete()
                     return@launch
@@ -405,6 +417,9 @@ class TtsManager @Inject constructor(
                         )
                     }
                     return@launch
+                }
+                if (usedFallback) {
+                    _state.update { it.copy(errorMessage = "Connection lost — switched to the offline voice for this chapter.") }
                 }
                 bufferedAudio[index] = audioFile
                 nextSentenceToBuffer += 1
