@@ -7,7 +7,6 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.PowerManager
-import com.example.data.local.dao.BookDao
 import com.example.data.local.datastore.AppSettingsManager
 import com.example.playback.PlaybackService
 import dagger.Lazy
@@ -40,13 +39,6 @@ data class NowPlaying(
 
 data class TtsChapter(val nowPlaying: NowPlaying, val text: String)
 
-data class GeneratedChapterAudio(
-    val nowPlaying: NowPlaying,
-    val filePath: String,
-    val cueCount: Int,
-    val cueStartsMs: List<Long> = emptyList()
-)
-
 internal fun nextPlayableChapter(
     chapters: List<TtsChapter>,
     afterIndex: Int
@@ -63,7 +55,6 @@ data class TtsState(
     val isSpeaking: Boolean = false,
     val isPaused: Boolean = false,
     val isPreparing: Boolean = false,
-    val isConvertingAudiobook: Boolean = false,
     val errorMessage: String? = null,
     val currentSentenceIndex: Int = 0,
     val totalSentences: Int = 0,
@@ -86,8 +77,7 @@ class TtsManager @Inject constructor(
     @ApplicationContext private val context: Context,
     private val offlineEngine: Lazy<SherpaTtsEngine>,
     private val edgeEngine: Lazy<EdgeTtsEngine>,
-    private val appSettingsManager: AppSettingsManager,
-    private val bookDao: BookDao
+    private val appSettingsManager: AppSettingsManager
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val _state = MutableStateFlow(TtsState())
@@ -96,10 +86,6 @@ class TtsManager @Inject constructor(
     private var currentSentences: List<String> = emptyList()
     private var chapterQueue: List<TtsChapter> = emptyList()
     private var chapterQueueIndex = -1
-    private var generatedQueue: List<GeneratedChapterAudio> = emptyList()
-    private var generatedQueueIndex = -1
-    private var generatedMode = false
-    private var generatedProgressJob: Job? = null
     private var player: MediaPlayer? = null
     private var playerPrepared = false
     private var currentAudioFile: java.io.File? = null
@@ -140,9 +126,6 @@ class TtsManager @Inject constructor(
         .build()
 
     fun speakSentences(sentences: List<String>, startIndex: Int = 0) {
-        generatedMode = false
-        generatedQueue = emptyList()
-        generatedQueueIndex = -1
         chapterQueue = emptyList()
         chapterQueueIndex = -1
         startSentenceSession(sentences, startIndex, _state.value.nowPlaying)
@@ -158,57 +141,8 @@ class TtsManager @Inject constructor(
     }
 
     fun seekToSentence(sentenceIndex: Int) {
-        if (generatedMode) {
-            val chapter = generatedQueue.getOrNull(generatedQueueIndex)
-            val position = chapter?.cueStartsMs?.getOrNull(sentenceIndex.coerceAtLeast(0)) ?: (sentenceIndex.coerceAtLeast(0) * 10_000L)
-            player?.seekTo(position.toInt())
-            return
-        }
         if (currentSentences.isEmpty()) return
         startSentenceSession(currentSentences, sentenceIndex, _state.value.nowPlaying)
-    }
-
-    fun playGeneratedChapters(chapters: List<GeneratedChapterAudio>, startChapterIndex: Int, startPositionMs: Long = 0L) {
-        val requested = chapters.indexOfFirst { it.nowPlaying.chapterIndex == startChapterIndex }
-        if (requested < 0 || chapters.isEmpty()) return
-        generatedMode = true
-        generatedQueue = chapters
-        generatedQueueIndex = requested
-        chapterQueue = emptyList()
-        chapterQueueIndex = -1
-        ++playbackGeneration
-        stopPlayer()
-        clearBufferedAudio()
-        if (audioManager.requestAudioFocus(focusRequest) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return
-        context.startForegroundService(Intent(context, PlaybackService::class.java))
-        _state.update { it.copy(isConvertingAudiobook = false, errorMessage = null) }
-        persistGeneratedProgress(chapters[requested], startPositionMs)
-        startGeneratedChapter(startPositionMs)
-        startGeneratedProgressPersistence()
-    }
-
-    fun showAudiobookConversion(nowPlaying: NowPlaying, message: String) {
-        stopPlayer()
-        clearBufferedAudio()
-        generatedMode = false
-        generatedProgressJob?.cancel()
-        generatedProgressJob = null
-        generatedQueue = emptyList()
-        generatedQueueIndex = -1
-        chapterQueue = emptyList()
-        chapterQueueIndex = -1
-        _state.update {
-            it.copy(
-                isSpeaking = false,
-                isPaused = false,
-                isPreparing = true,
-                isConvertingAudiobook = true,
-                errorMessage = message,
-                currentSentenceIndex = 0,
-                totalSentences = 0,
-                nowPlaying = nowPlaying
-            )
-        }
     }
 
     private fun startSentenceSession(sentences: List<String>, startIndex: Int, nowPlaying: NowPlaying?) {
@@ -227,7 +161,6 @@ class TtsManager @Inject constructor(
                 isSpeaking = false,
                 isPaused = false,
                 isPreparing = sentences.isNotEmpty(),
-                isConvertingAudiobook = false,
                 errorMessage = null,
                 currentSentenceIndex = start,
                 totalSentences = sentences.size,
@@ -238,12 +171,6 @@ class TtsManager @Inject constructor(
     }
 
     fun pause() {
-        if (_state.value.isConvertingAudiobook) return
-        if (generatedMode) {
-            player?.takeIf { it.isPlaying }?.pause()
-            _state.update { it.copy(isSpeaking = false, isPaused = true) }
-            return
-        }
         if (_state.value.isPreparing) {
             _state.update { it.copy(isSpeaking = false, isPaused = true, isPreparing = false) }
             return
@@ -256,14 +183,6 @@ class TtsManager @Inject constructor(
     }
 
     fun resume() {
-        if (_state.value.isConvertingAudiobook) return
-        if (generatedMode) {
-            val activePlayer = player ?: return
-            if (audioManager.requestAudioFocus(focusRequest) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return
-            activePlayer.start()
-            _state.update { it.copy(isSpeaking = true, isPaused = false) }
-            return
-        }
         val activePlayer = player
         if (!_state.value.isPaused) return
         if (audioManager.requestAudioFocus(focusRequest) != AudioManager.AUDIOFOCUS_REQUEST_GRANTED) return
@@ -282,10 +201,7 @@ class TtsManager @Inject constructor(
 
     /** Uses the retained chapter snapshot to replay after completion or a recoverable TTS error. */
     fun togglePlayback() {
-        if (_state.value.isConvertingAudiobook) return
         when {
-            generatedMode && (_state.value.isSpeaking || _state.value.isPreparing) -> pause()
-            generatedMode && _state.value.isPaused -> resume()
             _state.value.isSpeaking || _state.value.isPreparing -> pause()
             _state.value.isPaused -> resume()
             currentSentences.isNotEmpty() -> seekToSentence(_state.value.currentSentenceIndex)
@@ -298,11 +214,6 @@ class TtsManager @Inject constructor(
         clearBufferedAudio()
         chapterQueue = emptyList()
         chapterQueueIndex = -1
-        generatedQueue = emptyList()
-        generatedQueueIndex = -1
-        generatedMode = false
-        generatedProgressJob?.cancel()
-        generatedProgressJob = null
         sleepTimerJob?.cancel()
         sleepTimerJob = null
         audioManager.abandonAudioFocusRequest(focusRequest)
@@ -312,7 +223,6 @@ class TtsManager @Inject constructor(
                 isSpeaking = false,
                 isPaused = false,
                 isPreparing = false,
-                isConvertingAudiobook = false,
                 currentSentenceIndex = 0,
                 sleepTimerMinutes = null,
                 nowPlaying = null
@@ -331,10 +241,6 @@ class TtsManager @Inject constructor(
     }
 
     fun skip(delta: Int) {
-        if (generatedMode) {
-            player?.let { it.seekTo((it.currentPosition + delta * 10_000).coerceAtLeast(0)) }
-            return
-        }
         if (currentSentences.isEmpty()) return
         val newIndex = (_state.value.currentSentenceIndex + delta).coerceIn(0, currentSentences.lastIndex)
         seekToSentence(newIndex)
@@ -582,7 +488,7 @@ class TtsManager @Inject constructor(
                     currentAudioFile = null
                 }
                 _state.update {
-                    it.copy(isSpeaking = false, isPaused = false, isPreparing = false, errorMessage = "Vox Reader could not play the generated offline audio.")
+                    it.copy(isSpeaking = false, isPaused = false, isPreparing = false, errorMessage = "Vox Reader could not play that sentence.")
                 }
                 true
             }
@@ -600,97 +506,8 @@ class TtsManager @Inject constructor(
                 currentAudioFile = null
             }
             _state.update {
-                it.copy(isSpeaking = false, isPaused = false, isPreparing = false, errorMessage = "Vox Reader could not prepare the generated offline audio.")
+                it.copy(isSpeaking = false, isPaused = false, isPreparing = false, errorMessage = "Vox Reader could not prepare that sentence.")
             }
-        }
-    }
-
-    private fun startGeneratedChapter(startPositionMs: Long) {
-        val chapter = generatedQueue.getOrNull(generatedQueueIndex) ?: run {
-            stop()
-            return
-        }
-        val generation = playbackGeneration
-        val nextPlayer = MediaPlayer()
-        player = nextPlayer
-        playerPrepared = false
-        nextPlayer.setAudioAttributes(audioAttributes)
-        nextPlayer.setWakeMode(context, PowerManager.PARTIAL_WAKE_LOCK)
-        nextPlayer.setDataSource(chapter.filePath)
-        nextPlayer.setOnPreparedListener { prepared ->
-            if (generation != playbackGeneration || !generatedMode) {
-                prepared.release()
-                return@setOnPreparedListener
-            }
-            playerPrepared = true
-            prepared.seekTo(startPositionMs.coerceAtMost(prepared.duration.toLong()).toInt())
-            prepared.start()
-            _state.update {
-                it.copy(
-                    isSpeaking = true,
-                    isPaused = false,
-                    isPreparing = false,
-                    currentSentenceIndex = cueIndex(chapter, startPositionMs),
-                    totalSentences = chapter.cueCount,
-                    nowPlaying = chapter.nowPlaying
-                )
-            }
-        }
-        nextPlayer.setOnCompletionListener {
-            if (generation != playbackGeneration || !generatedMode) return@setOnCompletionListener
-            persistGeneratedProgress(chapter, 0L)
-            generatedQueueIndex += 1
-            if (generatedQueueIndex < generatedQueue.size) {
-                stopPlayer()
-                startGeneratedChapter(0L)
-            } else {
-                stop()
-            }
-        }
-        nextPlayer.setOnErrorListener { _, _, _ ->
-            if (generation == playbackGeneration) {
-                _state.update { it.copy(isSpeaking = false, isPaused = false, isPreparing = false, errorMessage = "Generated audiobook audio could not be played.") }
-            }
-            true
-        }
-        _state.update { it.copy(isPreparing = true, isSpeaking = false, isPaused = false, nowPlaying = chapter.nowPlaying) }
-        nextPlayer.prepareAsync()
-    }
-
-    private fun startGeneratedProgressPersistence() {
-        generatedProgressJob?.cancel()
-        val generation = playbackGeneration
-        generatedProgressJob = scope.launch(Dispatchers.IO) {
-            while (generatedMode && generation == playbackGeneration) {
-                delay(GENERATED_PROGRESS_INTERVAL_MS)
-                val chapter = generatedQueue.getOrNull(generatedQueueIndex) ?: continue
-                val positionMs = player?.let { runCatching { it.currentPosition.toLong() }.getOrNull() } ?: continue
-                persistGeneratedProgress(chapter, positionMs)
-                _state.update { it.copy(currentSentenceIndex = cueIndex(chapter, positionMs)) }
-            }
-        }
-    }
-
-    private fun cueIndex(chapter: GeneratedChapterAudio, positionMs: Long): Int {
-        val starts = chapter.cueStartsMs
-        if (starts.isEmpty()) return 0
-        var low = 0
-        var high = starts.lastIndex
-        while (low <= high) {
-            val middle = (low + high) ushr 1
-            if (starts[middle] <= positionMs) low = middle + 1 else high = middle - 1
-        }
-        return high.coerceIn(0, starts.lastIndex)
-    }
-
-    private fun persistGeneratedProgress(chapter: GeneratedChapterAudio, positionMs: Long) {
-        scope.launch(Dispatchers.IO) {
-            bookDao.updateAudioProgress(
-                bookId = chapter.nowPlaying.bookId,
-                chapterIndex = chapter.nowPlaying.chapterIndex,
-                position = cueIndex(chapter, positionMs),
-                positionMs = positionMs.coerceAtLeast(0L)
-            )
         }
     }
 
@@ -729,6 +546,5 @@ class TtsManager @Inject constructor(
         /** Enough to cover the gap while the next few synthesize; see startBufferedPlaybackIfReady. */
         const val START_PLAYBACK_AFTER_SENTENCES = 2
         const val BUFFER_CHECK_DELAY_MS = 50L
-        const val GENERATED_PROGRESS_INTERVAL_MS = 1_000L
     }
 }

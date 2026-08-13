@@ -9,7 +9,6 @@ import com.example.data.local.dao.BookDao
 import com.example.data.local.dao.BookmarkDao
 import com.example.data.local.dao.HighlightDao
 import com.example.data.local.dao.ListeningDao
-import com.example.data.local.dao.AudiobookDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -142,6 +141,20 @@ object DatabaseModule {
         }
     }
 
+    /**
+     * Drops the batch audiobook-rendering tables. Playback now streams sentence by sentence, so
+     * nothing writes rendered chapter files any more and these rows describe work that can no longer
+     * happen. Files already on disk under files/audiobooks are orphaned by this and are cleaned up
+     * once at startup.
+     */
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("DROP TABLE IF EXISTS audio_cues")
+            database.execSQL("DROP TABLE IF EXISTS chapter_audio")
+            database.execSQL("DROP TABLE IF EXISTS audiobook_generations")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
@@ -150,7 +163,7 @@ object DatabaseModule {
             AppDatabase::class.java,
             "voxleaf_db"
         )
-        .addMigrations(migration1To2, migration2To3, migration3To4, migration4To5, migration5To6, MIGRATION_6_7)
+        .addMigrations(migration1To2, migration2To3, migration3To4, migration4To5, migration5To6, MIGRATION_6_7, MIGRATION_7_8)
         .build()
     }
 
@@ -166,6 +179,4 @@ object DatabaseModule {
     @Provides
     fun provideListeningDao(database: AppDatabase): ListeningDao = database.listeningDao()
 
-    @Provides
-    fun provideAudiobookDao(database: AppDatabase): AudiobookDao = database.audiobookDao()
 }

@@ -29,7 +29,4 @@ sealed interface BookDetailsUiAction {
     data object OnDeleteBook : BookDetailsUiAction
     data object OnRedetectChapters : BookDetailsUiAction
     data object OnDismissRedetectMessage : BookDetailsUiAction
-    data object OnCancelAudiobook : BookDetailsUiAction
-    data object OnRetryAudiobook : BookDetailsUiAction
-    data object OnRegenerateAudiobook : BookDetailsUiAction
 }

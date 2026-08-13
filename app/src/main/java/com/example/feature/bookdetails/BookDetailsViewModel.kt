@@ -2,7 +2,6 @@ package com.example.feature.bookdetails
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.audiobook.AudiobookGenerationCoordinator
 import com.example.domain.repository.BookRepository
 import com.example.domain.usecase.RedetectChaptersUseCase
 import com.example.domain.usecase.RedetectResult
@@ -16,8 +15,7 @@ import javax.inject.Inject
 @HiltViewModel
 class BookDetailsViewModel @Inject constructor(
     private val bookRepository: BookRepository,
-    private val redetectChaptersUseCase: RedetectChaptersUseCase,
-    private val audiobookGenerationCoordinator: AudiobookGenerationCoordinator
+    private val redetectChaptersUseCase: RedetectChaptersUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<BookDetailsUiState>(BookDetailsUiState.Loading)
@@ -118,27 +116,6 @@ class BookDetailsViewModel @Inject constructor(
             BookDetailsUiAction.OnDismissRedetectMessage -> {
                 val state = _uiState.value as? BookDetailsUiState.Success ?: return
                 _uiState.value = state.copy(redetectMessage = null)
-            }
-            BookDetailsUiAction.OnCancelAudiobook -> {
-                val bookId = currentBookId ?: return
-                viewModelScope.launch {
-                    audiobookGenerationCoordinator.cancel(bookId)
-                    refreshBook(bookId)
-                }
-            }
-            BookDetailsUiAction.OnRetryAudiobook -> {
-                val state = _uiState.value as? BookDetailsUiState.Success ?: return
-                viewModelScope.launch {
-                    audiobookGenerationCoordinator.retry(state.book.id)
-                    refreshBook(state.book.id)
-                }
-            }
-            BookDetailsUiAction.OnRegenerateAudiobook -> {
-                val state = _uiState.value as? BookDetailsUiState.Success ?: return
-                viewModelScope.launch {
-                    audiobookGenerationCoordinator.regenerate(state.book.id, state.book.chapters.size)
-                    refreshBook(state.book.id)
-                }
             }
         }
     }

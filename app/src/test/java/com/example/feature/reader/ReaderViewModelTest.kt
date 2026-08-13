@@ -1,8 +1,6 @@
 package com.example.feature.reader
 
 import com.example.data.local.datastore.AppSettingsManager
-import com.example.data.local.dao.AudiobookDao
-import com.example.data.local.entity.ChapterAudioEntity
 import com.example.domain.repository.Book
 import com.example.domain.repository.BookRepository
 import com.example.domain.repository.Chapter
@@ -28,7 +26,6 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import java.io.File
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -40,7 +37,6 @@ class ReaderViewModelTest {
     private lateinit var ttsManager: TtsManager
     private lateinit var appSettingsManager: AppSettingsManager
     private lateinit var listeningTracker: ListeningTracker
-    private lateinit var audiobookDao: AudiobookDao
 
     private val ttsStateFlow = MutableStateFlow(TtsState())
     private val ttsRateFlow = MutableStateFlow(1.0f)
@@ -55,7 +51,6 @@ class ReaderViewModelTest {
         ttsManager = mockk(relaxed = true)
         appSettingsManager = mockk(relaxed = true)
         listeningTracker = mockk(relaxed = true)
-        audiobookDao = mockk(relaxed = true)
 
         every { ttsManager.state } returns ttsStateFlow
         every { appSettingsManager.ttsRateFlow } returns ttsRateFlow
@@ -74,7 +69,7 @@ class ReaderViewModelTest {
         val book = Book("1", "Title", "Author", "path", currentChapterIndex = 0, chapters = listOf(chapter))
         coEvery { bookRepository.getBookById("1") } returns book
 
-        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao)
+        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker)
         viewModel.loadBook("1")
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -87,7 +82,7 @@ class ReaderViewModelTest {
 
     @Test
     fun `observeTtsState updates ui state properly`() = runTest(testDispatcher) {
-        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao)
+        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker)
         testDispatcher.scheduler.advanceUntilIdle()
 
         ttsStateFlow.value = TtsState(isSpeaking = true, currentSentenceIndex = 5, speechRate = 1.5f)
@@ -104,7 +99,7 @@ class ReaderViewModelTest {
         val chapter = Chapter(1, "Chapter 1", "First sentence. Second sentence.", 1)
         val book = Book("1", "Title", "Author", currentPosition = 0, chapters = listOf(chapter))
         coEvery { bookRepository.getBookById("1") } returns book
-        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao)
+        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker)
 
         viewModel.loadBook("1")
         testDispatcher.scheduler.advanceUntilIdle()
@@ -116,41 +111,20 @@ class ReaderViewModelTest {
     }
 
     @Test
-    fun `play action streams immediately when no audio has been rendered`() = runTest(testDispatcher) {
-        val chapter = Chapter(1, "Chapter 1", "First sentence. Second sentence.", 1)
-        coEvery { bookRepository.getBookById("1") } returns Book("1", "Title", "Author", audiobookStatus = "CONVERTING", chapters = listOf(chapter))
-        coEvery { audiobookDao.getChapterAudio("1") } returns emptyList()
-        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao)
-
-        viewModel.loadBook("1")
-        testDispatcher.scheduler.advanceUntilIdle()
-        viewModel.handleAction(ReaderUiAction.OnPlayPauseTts)
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        // Synthesis outruns speech, so an unrendered book is streamed rather than waited on.
-        verify { ttsManager.speakChapters(any(), any(), any()) }
-        verify(exactly = 0) { ttsManager.showAudiobookConversion(any(), any()) }
-    }
-
-    @Test
-    fun `play action prefers already rendered chapter audio`() = runTest(testDispatcher) {
-        val rendered = File.createTempFile("chapter-000", ".m4a").apply { writeBytes(ByteArray(64)); deleteOnExit() }
+    fun `play action streams immediately`() = runTest(testDispatcher) {
         val chapter = Chapter(1, "Chapter 1", "First sentence. Second sentence.", 1)
         coEvery { bookRepository.getBookById("1") } returns Book("1", "Title", "Author", chapters = listOf(chapter))
-        coEvery { audiobookDao.getChapterAudio("1") } returns listOf(
-            ChapterAudioEntity("1", 0, "READY", rendered.absolutePath, segmentCount = 2)
-        )
-        coEvery { audiobookDao.getCues("1", 0) } returns emptyList()
-        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao)
+        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker)
 
         viewModel.loadBook("1")
         testDispatcher.scheduler.advanceUntilIdle()
         viewModel.handleAction(ReaderUiAction.OnPlayPauseTts)
         testDispatcher.scheduler.advanceUntilIdle()
 
-        verify { ttsManager.playGeneratedChapters(any(), any(), any()) }
-        verify(exactly = 0) { ttsManager.speakChapters(any(), any(), any()) }
+        // Synthesis outruns speech, so a book is streamed rather than rendered and waited on.
+        verify { ttsManager.speakChapters(any(), any(), any()) }
     }
+
 
     @Test
     fun `reader follows chapter advanced by playback queue`() = runTest(testDispatcher) {
@@ -160,7 +134,7 @@ class ReaderViewModelTest {
         )
         coEvery { bookRepository.getBookById("1") } returns
             Book("1", "Title", "Author", chapters = chapters)
-        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker, audiobookDao)
+        val viewModel = ReaderViewModel(bookRepository, ttsManager, appSettingsManager, listeningTracker)
 
         viewModel.loadBook("1")
         testDispatcher.scheduler.advanceUntilIdle()

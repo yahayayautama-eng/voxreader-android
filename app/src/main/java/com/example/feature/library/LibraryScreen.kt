@@ -326,16 +326,6 @@ private fun NowListeningCard(book: Book, onClick: () -> Unit) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                // Downloading a book for offline listening is an optional extra now that playback
-                // streams — so a stalled or failed download is a note, not an error. Shouting
-                // "conversion failed" in red at someone whose book plays fine was just alarming.
-                if (book.audiobookStatus == "CONVERTING") {
-                    Text(
-                        "Saving offline · ${book.audiobookProgressPercent}%",
-                        style = Eyebrow,
-                        color = TextTertiary
-                    )
-                }
                 Spacer(modifier = Modifier.height(10.dp))
                 LinearProgressIndicator(
                     progress = { progress },

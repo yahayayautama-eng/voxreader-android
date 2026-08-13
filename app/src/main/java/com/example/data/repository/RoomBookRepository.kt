@@ -6,8 +6,6 @@ import com.example.data.local.dao.BookmarkDao
 import com.example.data.local.dao.BookWithDetails
 import com.example.data.local.dao.HighlightDao
 import com.example.data.local.dao.ListeningDao
-import com.example.audiobook.AudioFileStore
-import com.example.audiobook.AudiobookGenerationCoordinator
 import com.example.data.local.entity.BookEntity
 import com.example.data.local.entity.BookmarkEntity
 import com.example.data.local.entity.HighlightEntity
@@ -34,9 +32,7 @@ class RoomBookRepository @Inject constructor(
     private val bookDao: BookDao,
     private val bookmarkDao: BookmarkDao,
     private val highlightDao: HighlightDao,
-    private val listeningDao: ListeningDao,
-    private val audioFileStore: AudioFileStore,
-    private val audiobookGenerationCoordinator: AudiobookGenerationCoordinator
+    private val listeningDao: ListeningDao
 ) : BookRepository {
 
     private fun BookWithDetails.toDomainModel(): Book {
@@ -52,9 +48,6 @@ class RoomBookRepository @Inject constructor(
             currentChapterIndex = progress?.currentChapterIndex ?: 0,
             currentPosition = progress?.currentPosition ?: 0,
             audioPositionMs = progress?.audioPositionMs ?: 0L,
-            audiobookStatus = audiobookGeneration?.status ?: "NONE",
-            audiobookProgressPercent = audiobookGeneration?.progressPercent ?: 0,
-            audiobookEstimatedBytes = audiobookGeneration?.estimatedBytes ?: 0L,
             isFavorite = book.isFavorite,
             chapters = sections.sortedBy { it.section.chapterNumber }.map { sectionWithChunks ->
                 Chapter(
@@ -152,10 +145,9 @@ class RoomBookRepository @Inject constructor(
     }
 
     override suspend fun removeBook(bookId: String) {
-        audiobookGenerationCoordinator.cancel(bookId)
         val sourceFile = bookDao.getSourceFilePath(bookId)
         bookDao.deleteBook(bookId)
-        audioFileStore.deleteBook(bookId)
+        java.io.File(java.io.File(context.filesDir, "audiobooks"), bookId).deleteRecursively()
         sourceFile?.let { path ->
             val file = java.io.File(path)
             if (file.parentFile?.canonicalFile == java.io.File(context.filesDir, "imports").canonicalFile) {

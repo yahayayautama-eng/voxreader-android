@@ -66,7 +66,7 @@ fun GlobalPlayerBar(
         shadowElevation = 6.dp,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = !state.isConvertingAudiobook) {
+            .clickable {
                 onNavigateToReader(
                     nowPlaying.bookId,
                     nowPlaying.chapterIndex,
@@ -99,7 +99,6 @@ fun GlobalPlayerBar(
                     )
                     Text(
                         text = when {
-                            state.isConvertingAudiobook -> state.errorMessage ?: "Creating audiobook before playback starts"
                             state.isPreparing -> "Preparing…"
                             state.errorMessage != null -> state.errorMessage.orEmpty()
                             else -> nowPlaying.chapterTitle
@@ -118,12 +117,12 @@ fun GlobalPlayerBar(
                     color = SignalOrange,
                     modifier = Modifier
                         .size(38.dp)
-                        .clickable(enabled = !state.isConvertingAudiobook) { viewModel.playPause() }
+                        .clickable { viewModel.playPause() }
                         .testTag("global_player_play_pause")
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = if (state.isSpeaking || (state.isPreparing && !state.isConvertingAudiobook)) {
+                            imageVector = if (state.isSpeaking || state.isPreparing) {
                                 Icons.Outlined.Pause
                             } else {
                                 Icons.Outlined.PlayArrow

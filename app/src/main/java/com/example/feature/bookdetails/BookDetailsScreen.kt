@@ -233,64 +233,6 @@ fun BookDetailsScreen(
                             )
                         }
 
-                        if (book.audiobookStatus != "NONE") {
-                            Spacer(modifier = Modifier.height(18.dp))
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                                shape = RoundedCornerShape(16.dp)
-                            ) {
-                                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                    Text("Neural audiobook", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                                    val statusText = when (book.audiobookStatus) {
-                                        "QUEUED" -> "Waiting to generate"
-                                        "CONVERTING" -> "Generating audio · ${book.audiobookProgressPercent}%"
-                                        "READY" -> "Ready for offline playback"
-                                        "FAILED" -> "Generation failed — retry when ready"
-                                        "CANCELLED" -> "Generation cancelled"
-                                        else -> book.audiobookStatus
-                                    }
-                                    Text(statusText, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    if (book.audiobookEstimatedBytes > 0) {
-                                        Text(
-                                            "Estimated storage: ${formatBytes(book.audiobookEstimatedBytes)}",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                    if (book.audiobookStatus == "CONVERTING") {
-                                        LinearProgressIndicator(
-                                            progress = { (book.audiobookProgressPercent / 100f).coerceIn(0f, 1f) },
-                                            modifier = Modifier.fillMaxWidth()
-                                        )
-                                    }
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                                        when (book.audiobookStatus) {
-                                            "QUEUED", "CONVERTING" -> DetailsOutlineButton(
-                                                text = "Cancel",
-                                                icon = Icons.Outlined.DeleteOutline,
-                                                onClick = { viewModel.handleAction(BookDetailsUiAction.OnCancelAudiobook) },
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                            "FAILED", "CANCELLED" -> DetailsOutlineButton(
-                                                text = "Retry",
-                                                icon = Icons.Outlined.PlayArrow,
-                                                onClick = { viewModel.handleAction(BookDetailsUiAction.OnRetryAudiobook) },
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                        }
-                                        if (book.audiobookStatus == "READY" || book.audiobookStatus == "FAILED" || book.audiobookStatus == "CANCELLED") {
-                                            DetailsOutlineButton(
-                                                text = "Regenerate",
-                                                icon = Icons.Outlined.AutoFixHigh,
-                                                onClick = { viewModel.handleAction(BookDetailsUiAction.OnRegenerateAudiobook) },
-                                                modifier = Modifier.weight(1f)
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
 
                         if (book.description.isNotBlank()) {
                             Spacer(modifier = Modifier.height(24.dp))

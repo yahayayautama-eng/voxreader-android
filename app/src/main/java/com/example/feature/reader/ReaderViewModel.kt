@@ -2,14 +2,12 @@ package com.example.feature.reader
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.data.local.dao.AudiobookDao
 import com.example.data.local.datastore.AppSettingsManager
 import com.example.domain.repository.BookRepository
 import com.example.domain.repository.Bookmark
 import com.example.domain.repository.Highlight
 import com.example.domain.model.tts.TextChunk
 import com.example.tts.EngineId
-import com.example.tts.GeneratedChapterAudio
 import com.example.tts.ListeningTracker
 import com.example.tts.NowPlaying
 import com.example.tts.TtsChapter
@@ -26,7 +24,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.io.File
 import javax.inject.Inject
 
 @HiltViewModel
@@ -34,8 +31,7 @@ class ReaderViewModel @Inject constructor(
     private val bookRepository: BookRepository,
     private val ttsManager: TtsManager,
     private val appSettingsManager: AppSettingsManager,
-    private val listeningTracker: ListeningTracker,
-    private val audiobookDao: AudiobookDao
+    private val listeningTracker: ListeningTracker
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ReaderUiState())
@@ -73,7 +69,6 @@ class ReaderViewModel @Inject constructor(
                         isTtsPlaying = ttsState.isSpeaking,
                         isTtsPaused = ttsState.isPaused,
                         isTtsPreparing = ttsState.isPreparing,
-                        isAudiobookConverting = ttsState.isConvertingAudiobook,
                         currentSentenceIndex = ttsState.currentSentenceIndex,
                         ttsRate = ttsState.speechRate,
                         ttsEngineId = ttsState.engineId,
@@ -173,7 +168,7 @@ class ReaderViewModel @Inject constructor(
                     ttsManager.resume()
                 } else {
                     state.book?.let { book ->
-                        viewModelScope.launch { playBook(book, state.currentChapterIndex, state.currentSentenceIndex) }
+                        playBook(book, state.currentChapterIndex, state.currentSentenceIndex)
                     }
                 }
             }
@@ -313,45 +308,10 @@ class ReaderViewModel @Inject constructor(
     }
 
     /**
-     * Starts playback now, whatever state generation is in.
-     *
-     * Synthesis runs faster than speech does, so waiting for a whole book to render before playing
-     * any of it only ever costs the listener time — a long book meant hours of staring at a progress
-     * bar. Pre-rendered chapter audio is still preferred when it happens to already exist, because
-     * it is free to play and seeks precisely; otherwise the chapter is streamed sentence by sentence
-     * with the buffer running ahead of the voice.
+     * Synthesis outruns speech, so a chapter is streamed sentence by sentence with the buffer
+     * running ahead of the voice; there is nothing to render first and nothing to wait for.
      */
-    private suspend fun playBook(book: com.example.domain.repository.Book, chapterIndex: Int, sentenceIndex: Int) {
-        val generated = audiobookDao.getChapterAudio(book.id)
-            .filter { it.status == "READY" && it.filePath?.let { path -> File(path).exists() } == true }
-            .associateBy { it.chapterIndex }
-
-        // Rendered audio is only usable as a queue from the requested chapter onwards; the first gap
-        // is where streaming has to take over anyway.
-        val renderedRun = generateSequence(chapterIndex) { it + 1 }
-            .takeWhile { it <= book.chapters.lastIndex && generated[it] != null }
-            .toList()
-
-        if (renderedRun.isNotEmpty()) {
-            val generatedChapters = renderedRun.mapNotNull { index ->
-                generated[index]?.let { audio ->
-                    GeneratedChapterAudio(
-                        nowPlaying = NowPlaying(book.id, book.title, index, book.chapters[index].title),
-                        filePath = audio.filePath!!,
-                        cueCount = audio.segmentCount,
-                        cueStartsMs = audiobookDao.getCues(book.id, index).map { it.startMs }
-                    )
-                }
-            }
-            ttsManager.playGeneratedChapters(
-                chapters = generatedChapters,
-                startChapterIndex = chapterIndex,
-                startPositionMs = audiobookDao.getCues(book.id, chapterIndex)
-                    .getOrNull(sentenceIndex)?.startMs ?: 0L
-            )
-            return
-        }
-
+    private fun playBook(book: com.example.domain.repository.Book, chapterIndex: Int, sentenceIndex: Int) {
         ttsManager.speakChapters(
             chapters = book.chapters.mapIndexed { index, chapter ->
                 TtsChapter(

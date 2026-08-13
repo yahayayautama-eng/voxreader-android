@@ -8,7 +8,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.navigation.compose.ComposeNavigator
 import androidx.navigation.testing.TestNavHostController
 import androidx.test.core.app.ApplicationProvider
-import com.example.data.local.dao.BookDao
 import com.example.data.local.datastore.AppSettingsManager
 import com.example.feature.library.LibraryScreenContent
 import com.example.feature.library.LibraryUiState
@@ -47,8 +46,7 @@ class NavigationTest {
             ApplicationProvider.getApplicationContext(),
             unusedNativeEngine,
             unusedEdgeEngine,
-            appSettingsManager,
-            mockk<BookDao>(relaxed = true)
+            appSettingsManager
         )
 
         composeTestRule.setContent {

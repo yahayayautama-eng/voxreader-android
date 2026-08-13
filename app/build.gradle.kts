@@ -32,8 +32,6 @@ android {
     }
   }
 
-  ndkVersion = "27.2.12479018"
-
   signingConfigs {
     if (!keystoreProps.isEmpty) {
       create("release") {
@@ -65,12 +63,6 @@ android {
   buildFeatures {
     compose = true
     buildConfig = true
-  }
-  externalNativeBuild {
-    cmake {
-      path = file("src/main/cpp/CMakeLists.txt")
-      version = "3.31.6"
-    }
   }
   testOptions {
     unitTests {
@@ -120,8 +112,6 @@ dependencies {
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.core.ktx)
   implementation(libs.androidx.datastore.preferences)
-  implementation(libs.androidx.work.runtime.ktx)
-  implementation(libs.androidx.hilt.work)
   implementation(libs.androidx.lifecycle.runtime.compose)
   implementation(libs.androidx.lifecycle.runtime.ktx)
   implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -144,14 +134,12 @@ dependencies {
   // WebSocket client for the Edge TTS online voice engine.
   implementation("com.squareup.okhttp3:okhttp:4.12.0")
   "ksp"(libs.hilt.compiler)
-  "ksp"("androidx.hilt:hilt-compiler:1.3.0")
   "ksp"(libs.androidx.room.compiler)
   testImplementation(libs.androidx.compose.ui.test.junit4)
   testImplementation(libs.androidx.core)
   testImplementation(libs.androidx.junit)
   testImplementation(libs.junit)
   testImplementation("io.mockk:mockk:1.13.10")
-  testImplementation("androidx.work:work-testing:2.10.1")
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.robolectric)
   testImplementation(libs.androidx.navigation.testing)

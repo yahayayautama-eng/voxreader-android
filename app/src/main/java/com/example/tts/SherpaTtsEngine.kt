@@ -2,7 +2,6 @@ package com.example.tts
 
 import android.content.Context
 import android.util.Log
-import com.example.audiobook.AudiobookSynthesizer
 import com.k2fsa.sherpa.onnx.OfflineTts
 import com.k2fsa.sherpa.onnx.OfflineTtsConfig
 import com.k2fsa.sherpa.onnx.OfflineTtsModelConfig
@@ -28,13 +27,12 @@ import javax.inject.Singleton
 @Singleton
 class SherpaTtsEngine @Inject constructor(
     @ApplicationContext private val context: Context
-) : TtsEngine, AudiobookSynthesizer {
+) : TtsEngine {
     override val id: String get() = EngineId.OFFLINE.storageKey
     override val displayName: String get() = "Offline neural voice"
     override val requiresNetwork: Boolean get() = false
 
     private val runtimeDir = File(context.filesDir, "sherpa-runtime")
-    private val audiobookOutputDir = File(context.filesDir, "audiobook-runtime")
     private val liveOutputDir = File(context.filesDir, "sherpa-playback")
 
     @Volatile
@@ -61,16 +59,6 @@ class SherpaTtsEngine @Inject constructor(
     override suspend fun synthesize(text: String, voiceId: String, speed: Float): File? =
         withContext(Dispatchers.IO) { generate(text, voiceId, speed, liveOutputDir) }
 
-    override suspend fun synthesizeForAudiobook(text: String, speed: Float, voicePath: String): File? =
-        withContext(Dispatchers.IO) { generate(text, voicePath, speed, audiobookOutputDir) }
-
-    override suspend fun cleanupAudiobookRuntime(): Unit = withContext(Dispatchers.IO) {
-        val cutoff = System.currentTimeMillis() - STALE_AUDIO_AGE_MS
-        audiobookOutputDir.listFiles { file -> file.name.startsWith("audio-") && file.extension == "wav" }
-            ?.filter { it.lastModified() < cutoff }
-            ?.forEach { it.delete() }
-    }
-
     private fun generate(text: String, voiceId: String, speed: Float, outputDir: File): File? {
         if (text.isBlank()) return null
         val engine = ensureInitialized() ?: return null
@@ -78,8 +66,7 @@ class SherpaTtsEngine @Inject constructor(
         val output = File(outputDir, "audio-${System.nanoTime()}.wav")
         return try {
             val audio = engine.generate(text, speakerIdOf(voiceId), speed.coerceIn(MIN_SPEED, MAX_SPEED))
-            // save() writes a RIFF/WAV file, which is what every downstream consumer — MediaPlayer,
-            // WavChapterAssembler, AacChapterEncoder — already expects.
+            // save() writes a RIFF/WAV file, which is what MediaPlayer expects.
             if (audio.save(output.absolutePath) && output.length() > WAV_HEADER_BYTES) {
                 output
             } else {
@@ -162,7 +149,6 @@ class SherpaTtsEngine @Inject constructor(
         private const val MARKER = ".model-version"
         private const val TAG = "SherpaTtsEngine"
         private const val WAV_HEADER_BYTES = 44L
-        private const val STALE_AUDIO_AGE_MS = 60 * 60 * 1000L
         private const val MIN_SPEED = 0.5f
         private const val MAX_SPEED = 2f
         private const val DEFAULT_SPEAKER_ID = 79

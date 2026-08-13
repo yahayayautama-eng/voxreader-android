@@ -12,11 +12,6 @@ import android.media.session.PlaybackState
 import android.os.IBinder
 import com.example.MainActivity
 import com.example.R
-import com.example.data.local.dao.AudiobookDao
-import com.example.data.local.dao.BookDao
-import com.example.domain.repository.BookRepository
-import com.example.tts.GeneratedChapterAudio
-import com.example.tts.NowPlaying
 import com.example.tts.TtsManager
 import com.example.tts.TtsState
 import dagger.hilt.android.AndroidEntryPoint
@@ -28,7 +23,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import java.io.File
 import javax.inject.Inject
 
 /**
@@ -43,18 +37,11 @@ class PlaybackService : Service() {
     @Inject
     lateinit var ttsManager: TtsManager
 
-    @Inject
-    lateinit var bookDao: BookDao
 
-    @Inject
-    lateinit var audiobookDao: AudiobookDao
 
-    @Inject
-    lateinit var bookRepository: BookRepository
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var collectJob: Job? = null
-    private var restoring = false
     private lateinit var mediaSession: MediaSession
     private val notificationManager by lazy { getSystemService(NotificationManager::class.java) }
 
@@ -78,7 +65,7 @@ class PlaybackService : Service() {
         collectJob = ttsManager.state
             .onEach { state ->
                 updateMediaSession(state)
-                if (!restoring && !state.isSpeaking && !state.isPaused && !state.isPreparing) {
+                if (!state.isSpeaking && !state.isPaused && !state.isPreparing) {
                     stopSelf()
                 } else {
                     notificationManager.notify(NOTIFICATION_ID, buildNotification(state))
@@ -89,7 +76,6 @@ class PlaybackService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         startForeground(NOTIFICATION_ID, buildNotification(ttsManager.state.value))
-        if (intent == null) restoreAfterProcessRestart()
         when (intent?.action) {
             ACTION_TOGGLE -> ttsManager.togglePlayback()
             ACTION_NEXT -> ttsManager.skip(+1)
@@ -170,41 +156,7 @@ class PlaybackService : Service() {
             .build()
     }
 
-    private fun restoreAfterProcessRestart() {
-        if (restoring || ttsManager.state.value.isSpeaking || ttsManager.state.value.isPaused || ttsManager.state.value.isPreparing) return
-        restoring = true
-        scope.launch {
-            val progress = bookDao.getLatestAudioProgress()
-            val book = progress?.let { bookRepository.getBookById(it.bookId) }
-            val generation = progress?.let { audiobookDao.getGeneration(it.bookId) }
-            val ready = progress?.let { audiobookDao.getChapterAudio(it.bookId) }
-                ?.filter { it.status == "READY" && it.filePath?.let { path -> File(path) }.isValidAudioFile() }
-                ?.associateBy { it.chapterIndex }
-            val cueStarts = if (progress != null && ready != null) {
-                ready.keys.associateWith { index -> audiobookDao.getCues(progress.bookId, index).map { it.startMs } }
-            } else emptyMap()
-            val chapters = if (book != null && ready != null) {
-                book.chapters.mapIndexedNotNull { index, chapter ->
-                    ready[index]?.filePath?.let { path ->
-                        GeneratedChapterAudio(
-                            nowPlaying = NowPlaying(book.id, book.title, index, chapter.title),
-                            filePath = path,
-                            cueCount = ready[index]?.segmentCount ?: 0,
-                            cueStartsMs = cueStarts[index].orEmpty()
-                        )
-                    }
-                }
-            } else emptyList()
-            val complete = book != null && chapters.size == book.chapters.count { it.content.isNotBlank() }
-            if (progress != null && generation?.status == "READY" && complete) {
-                ttsManager.playGeneratedChapters(chapters, progress.currentChapterIndex, progress.audioPositionMs)
-            }
-            restoring = false
-            if (ttsManager.state.value == TtsState()) stopSelf()
-        }
-    }
 
-    private fun File?.isValidAudioFile(): Boolean = this?.isFile == true && length() > 44
 
     private companion object {
         const val CHANNEL_ID = "voxleaf_playback"
