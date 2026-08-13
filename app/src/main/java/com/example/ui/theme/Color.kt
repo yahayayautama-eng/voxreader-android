@@ -2,26 +2,46 @@ package com.example.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// VoxLeaf: quiet reading surfaces with a single signal-orange playback accent.
-val Leaf = Color(0xFF16624A)
-val LeafDark = Color(0xFF0A382A)
-val LeafContainer = Color(0xFFC4EAD8)
-val Ink = Color(0xFF171917)
-val Mist = Color(0xFFE4ECE8)
-val Canvas = Color(0xFFF7F7F5)
-val SignalOrange = Color(0xFFFF6B35)
-val SignalOrangeContainer = Color(0xFFFFDBCC)
-val Carbon = Color(0xFF111312)
-val Graphite = Color(0xFF1C201E)
-val NightText = Color(0xFFF2F0EC)
+/**
+ * Paper-dark: a warm, printed-page palette rather than the blue-grey most dark apps default to.
+ * Every neutral carries a little yellow, so long reading sessions read as dimmed paper instead of
+ * switched-off screen. Brass is the single accent and marks playback only.
+ *
+ * Contrast against [PaperDark]: ink 14.9:1, secondary 7.2:1, tertiary 4.9:1, brass 7.5:1 — all
+ * comfortably past 4.5:1, checked at the smallest size each is used at.
+ */
+val PaperDark = Color(0xFF14120F)
+val PaperSurface = Color(0xFF1E1B16)
+val PaperInk = Color(0xFFEDE6D9)
+val Brass = Color(0xFFC9A227)
+val BrassDim = Color(0xFF6B5514)
+val BrassContainer = Color(0xFFF0DFA8)
 
-// Placeholder/muted labels sit at 4.5:1 against Carbon; the design handoff's 0.40 alpha measured 3.6:1.
-val NightMuted = Color(0xFFBEC7C0)
-val TextSecondary = Color(0x9EF2F0EC)
-val TextTertiary = Color(0x8AF2F0EC)
+val PaperLight = Color(0xFFF5F1E8)
+val PaperLightSurface = Color(0xFFFFFDF7)
+val PaperLightInk = Color(0xFF1C1814)
+val PaperLightMuted = Color(0xFFE6DFD1)
+
+// Existing screens address these names directly; re-valuing them here restyles the app without
+// touching a single call site.
+val Leaf = Brass
+val LeafDark = BrassDim
+val LeafContainer = BrassContainer
+val Ink = PaperLightInk
+val Mist = PaperLightMuted
+val Canvas = PaperLight
+val SignalOrange = Brass
+val SignalOrangeContainer = BrassContainer
+val Carbon = PaperDark
+val Graphite = PaperSurface
+val NightText = PaperInk
+
+val NightMuted = Color(0xFFA99F8E)
+val TextSecondary = Color(0xFFA99F8E)
+val TextTertiary = Color(0xFF8A8172)
 
 // Progress fill and "played" markers. Never used for identity.
-val PaleGreen = Color(0xFFC4EAD8)
+val PaleGreen = Color(0xFFD8C98F)
 
 /**
  * Per-book identity colors, deliberately distinct from the functional orange/green so a spine's color
@@ -46,12 +66,13 @@ enum class HighlightColor(val label: String, val fill: Color) {
     }
 }
 
+/** Book-cloth colours: muted bindings that sit beside brass without competing with it. */
 enum class SpineColor(val fill: Color, val onFill: Color) {
-    Clay(Color(0xFFAC6047), NightText),
-    Slate(Color(0xFF567693), NightText),
-    Olive(Color(0xFF8A8853), Carbon),
-    Sand(Color(0xFFC9A96B), Carbon),
-    Plum(Color(0xFF856885), NightText);
+    Clay(Color(0xFF9A5138), PaperInk),
+    Indigo(Color(0xFF3F4A6B), PaperInk),
+    Olive(Color(0xFF6E7248), PaperInk),
+    Sand(Color(0xFFBFA073), PaperDark),
+    Plum(Color(0xFF6E4A5C), PaperInk);
 
     companion object {
         /** Deterministic per-book: the same book always gets the same spine. */

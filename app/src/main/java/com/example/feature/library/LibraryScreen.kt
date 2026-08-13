@@ -42,6 +42,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -77,6 +78,7 @@ import com.example.core.ui.components.ErrorState
 import com.example.core.ui.components.ShelfSkeleton
 import com.example.core.ui.components.toDisplayTitle
 import com.example.domain.repository.Book
+import com.example.ui.theme.Eyebrow
 import com.example.ui.theme.PaleGreen
 import com.example.ui.theme.SignalOrange
 import com.example.ui.theme.TextTertiary
@@ -234,22 +236,29 @@ private fun androidx.compose.foundation.lazy.grid.LazyGridScope.fullWidth(
 
 @Composable
 private fun LibraryHeader(searchQuery: String, onAction: (LibraryUiAction) -> Unit) {
+    // Arranged like a masthead rather than a title stacked on a sentence: the wordmark carries the
+    // page, a hairline closes it, and the strapline sits under the rule as small tracked caps so it
+    // reads as a subtitle instead of competing with the first book on screen.
     Column {
         Text(
             text = "Vox Reader",
             fontFamily = VoxLeafSerif,
             fontStyle = FontStyle.Italic,
             fontWeight = FontWeight.SemiBold,
-            fontSize = 30.sp,
+            fontSize = 40.sp,
+            lineHeight = 44.sp,
+            letterSpacing = (-1.2).sp,
             color = MaterialTheme.colorScheme.onBackground
         )
-        Spacer(modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(10.dp))
+        HorizontalDivider(color = SignalOrange.copy(alpha = 0.45f), thickness = 1.dp)
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
-            "A private library with an offline voice.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            "YOUR LIBRARY · READ ALOUD",
+            style = Eyebrow,
+            color = TextTertiary
         )
-        Spacer(modifier = Modifier.height(18.dp))
+        Spacer(modifier = Modifier.height(20.dp))
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { onAction(LibraryUiAction.OnSearchQueryChange(it)) },
@@ -273,8 +282,7 @@ private fun LibraryHeader(searchQuery: String, onAction: (LibraryUiAction) -> Un
 private fun SectionLabel(text: String) {
     Text(
         text = text.uppercase(),
-        style = MaterialTheme.typography.labelSmall,
-        letterSpacing = 0.08.em,
+        style = Eyebrow,
         color = TextTertiary,
         modifier = Modifier.padding(bottom = 8.dp)
     )
@@ -318,15 +326,14 @@ private fun NowListeningCard(book: Book, onClick: () -> Unit) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (book.audiobookStatus != "READY" && book.audiobookStatus != "NONE") {
+                // Downloading a book for offline listening is an optional extra now that playback
+                // streams — so a stalled or failed download is a note, not an error. Shouting
+                // "conversion failed" in red at someone whose book plays fine was just alarming.
+                if (book.audiobookStatus == "CONVERTING") {
                     Text(
-                        when (book.audiobookStatus) {
-                            "CONVERTING" -> "Creating audiobook · ${book.audiobookProgressPercent}%"
-                            "FAILED" -> "Audiobook conversion failed"
-                            else -> "Audiobook conversion queued"
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = if (book.audiobookStatus == "FAILED") MaterialTheme.colorScheme.error else SignalOrange
+                        "Saving offline · ${book.audiobookProgressPercent}%",
+                        style = Eyebrow,
+                        color = TextTertiary
                     )
                 }
                 Spacer(modifier = Modifier.height(10.dp))

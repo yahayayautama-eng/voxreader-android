@@ -7,45 +7,47 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
-    primary = LeafContainer,
-    onPrimary = LeafDark,
-    primaryContainer = LeafDark,
-    onPrimaryContainer = LeafContainer,
-    secondary = SignalOrange,
-    onSecondary = Carbon,
-    secondaryContainer = Color(0xFF5A2412),
-    onSecondaryContainer = SignalOrangeContainer,
-    background = Carbon,
-    onBackground = NightText,
-    surface = Carbon,
-    onSurface = NightText,
-    surfaceVariant = Graphite,
+    primary = Brass,
+    onPrimary = PaperDark,
+    primaryContainer = BrassDim,
+    onPrimaryContainer = BrassContainer,
+    secondary = Brass,
+    onSecondary = PaperDark,
+    secondaryContainer = BrassDim,
+    onSecondaryContainer = BrassContainer,
+    background = PaperDark,
+    onBackground = PaperInk,
+    surface = PaperDark,
+    onSurface = PaperInk,
+    surfaceVariant = PaperSurface,
     onSurfaceVariant = TextSecondary,
-    outline = Color(0xFF89938C),
-    // Explicit tonal ramp off Carbon so cards, search, and nav read as distinct layers instead of one flat black.
-    surfaceContainerLowest = Color(0xFF0A0B0A),
-    surfaceContainerLow = Color(0xFF171917),
-    surfaceContainer = Color(0xFF1B1E1C),
-    surfaceContainerHigh = Color(0xFF23272A),
-    surfaceContainerHighest = Color(0xFF2C3130)
+    outline = Color(0xFF6F675A),
+    outlineVariant = Color(0xFF3A342B),
+    // Warm tonal ramp off PaperDark so cards, search and nav read as stacked paper rather than one
+    // flat field. Each step keeps the same yellow bias — a neutral grey here would read as a hole.
+    surfaceContainerLowest = Color(0xFF0F0D0B),
+    surfaceContainerLow = Color(0xFF1A1712),
+    surfaceContainer = Color(0xFF1E1B16),
+    surfaceContainerHigh = Color(0xFF262219),
+    surfaceContainerHighest = Color(0xFF302B21)
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Leaf,
+    primary = BrassDim,
     onPrimary = Color.White,
-    primaryContainer = LeafContainer,
-    onPrimaryContainer = LeafDark,
-    secondary = SignalOrange,
-    onSecondary = Ink,
-    secondaryContainer = SignalOrangeContainer,
-    onSecondaryContainer = Color(0xFF4B1B0A),
-    background = Canvas,
-    onBackground = Ink,
-    surface = Color.White,
-    onSurface = Ink,
-    surfaceVariant = Mist,
-    onSurfaceVariant = Color(0xFF42534A),
-    outline = Color(0xFF718178)
+    primaryContainer = BrassContainer,
+    onPrimaryContainer = Color(0xFF3A2E06),
+    secondary = BrassDim,
+    onSecondary = Color.White,
+    secondaryContainer = BrassContainer,
+    onSecondaryContainer = Color(0xFF3A2E06),
+    background = PaperLight,
+    onBackground = PaperLightInk,
+    surface = PaperLightSurface,
+    onSurface = PaperLightInk,
+    surfaceVariant = PaperLightMuted,
+    onSurfaceVariant = Color(0xFF564E42),
+    outline = Color(0xFF847A6C)
 )
 
 // VoxLeaf ships one bold-contrast dark scheme by default; light stays available for a future toggle.
