@@ -141,7 +141,7 @@ class SherpaTtsEngine @Inject constructor(
         voiceId.substringAfterLast(':', "").toIntOrNull() ?: DEFAULT_SPEAKER_ID
 
     companion object {
-        const val MODEL_VERSION = "piper-libritts-r-medium-int8-1"
+        const val MODEL_VERSION = "piper-libritts-r-medium-int8-2"
         private const val ASSET_ROOT = "sherpa"
         private const val MODEL = "model.onnx"
         private const val TOKENS = "tokens.txt"
