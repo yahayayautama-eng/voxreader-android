@@ -1,32 +1,87 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- Open book and narration waves, balanced within the adaptive-icon safe zone. -->
+
+    <!-- Left Open Book Page (Luminous White & Sky Tint) -->
     <path
-        android:fillColor="#FFF7F7F5"
-        android:pathData="M20,31 C34,27 46,31 54,40 L54,80 C45,73 34,70 20,74 Z" />
+        android:pathData="M26,34 C36,30 46,33 52,41 L52,77 C45,71 36,68 26,72 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="26"
+                android:startY="34"
+                android:endX="52"
+                android:endY="77">
+                <item android:offset="0.0" android:color="#FFF8FAFC" />
+                <item android:offset="1.0" android:color="#FFE2E8F0" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Right Open Book Page (Luminous White & Sky Tint) -->
     <path
-        android:fillColor="#FFF7F7F5"
-        android:pathData="M88,31 C74,27 62,31 54,40 L54,80 C63,73 74,70 88,74 Z" />
+        android:pathData="M82,34 C72,30 62,33 56,41 L56,77 C63,71 72,68 82,72 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="82"
+                android:startY="34"
+                android:endX="56"
+                android:endY="77">
+                <item android:offset="0.0" android:color="#FFF8FAFC" />
+                <item android:offset="1.0" android:color="#FFCBD5E1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Center Book Spine / Acoustic Spine -->
     <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFF6B35"
-        android:strokeWidth="3.5"
+        android:pathData="M52,41 C53.3,40 54.7,40 56,41 L56,77 C54.7,76 53.3,76 52,77 Z"
+        android:fillColor="#FF94A3B8" />
+
+    <!-- Audio Waves Emerging from Book (Sky Cyan to Cobalt) -->
+    <path
+        android:pathData="M34,48 C44,40 64,40 74,48"
+        android:strokeWidth="3.2"
         android:strokeLineCap="round"
-        android:pathData="M36,51 C46,43 62,43 72,51" />
+        android:fillColor="#00000000">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="34"
+                android:startY="44"
+                android:endX="74"
+                android:endY="48">
+                <item android:offset="0.0" android:color="#FF38BDF8" />
+                <item android:offset="1.0" android:color="#FF2563EB" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
     <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFF6B35"
-        android:strokeWidth="3.5"
+        android:pathData="M41,56 C47,50 61,50 67,56"
+        android:strokeWidth="3.2"
         android:strokeLineCap="round"
-        android:pathData="M43,59 C49,54 59,54 65,59" />
+        android:fillColor="#00000000">
+        <aapt:attr name="android:strokeColor">
+            <gradient
+                android:type="linear"
+                android:startX="41"
+                android:startY="52"
+                android:endX="67"
+                android:endY="56">
+                <item android:offset="0.0" android:color="#FF38BDF8" />
+                <item android:offset="1.0" android:color="#FF3B82F6" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Center Podcast / Play Acoustic Pulse Dot -->
     <path
-        android:fillColor="#00000000"
-        android:strokeColor="#FFFF6B35"
-        android:strokeWidth="3.5"
-        android:strokeLineCap="round"
-        android:pathData="M50,67 C52,65 56,65 58,67" />
+        android:pathData="M54,65m-2.8,0a2.8,2.8 0,1 1,5.6 0a2.8,2.8 0,1 1,-5.6 0"
+        android:fillColor="#FF38BDF8" />
 </vector>

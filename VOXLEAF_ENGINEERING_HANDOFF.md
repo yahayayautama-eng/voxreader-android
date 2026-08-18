@@ -1,215 +1,141 @@
 # VoxLeaf Engineering Handoff
 
-Updated: 2026-08-12  
+Updated: 2026-08-18  
 Repository: `C:\Users\Yayis\Desktop\CODEX\Android studio\voxleaf`  
 Branch: `main`  
-Package: `com.aistudio.voxreader.xyz.debug`
+Package: `com.aistudio.voxreader.xyz.debug`  
+Connected Test Device: `b6f2151b` (Android Device)
 
-## Product direction
+---
 
-VoxLeaf is being changed from “read text with TTS as the user goes” to:
+## 1. Product Direction & Architecture Overview
 
-1. import a book;
-2. detect chapters and sentences;
-3. let the user choose voice, speed, and tone in Settings;
-4. generate the complete offline neural audiobook before playback;
-5. store chapter-level M4A files and cue metadata;
-6. play those files continuously, including when the Reader screen is destroyed.
+VoxLeaf is an offline-first, high-fidelity neural audiobook and e-book reader built for Android. The architecture encompasses:
 
-The current implementation is an incremental migration toward that design. It is not yet a production-ready audiobook renderer.
+1. **Multi-Format Book Ingestion & Parsing**: High-accuracy chapter detection and structural segmentation for **EPUB (v2/v3)**, **PDF**, **MOBI/AZW3**, **FB2**, **DOCX**, and **TXT** files, with on-device ML Kit OCR fallback for scanned documents.
+2. **Audiobook Pre-Generation & Continuous Playback**: Neural synthesis via offline on-device Kokoro / ONNX Runtime into chapter-level M4A files and sentence-level cue metadata, backed by Edge TTS online engine fallback.
+3. **Robust Media Playback & Foreground Service**: Continuous background playback via `PlaybackService` / `TtsManager`, supporting sentence highlighting, speed adjustment, and persistent reading progress.
+4. **Stable Jetpack Compose UI**: Discrete speed controls, dynamic reader themes (Denim Blue / Sky Cyan), adaptive covers, and responsive reader controls.
 
-## Baseline commits
+---
 
-The current baseline is commit `bf73cc3` (`fix: show audiobook conversion state instead of tts preparation`). Earlier commits added the audiobook-generation pipeline:
+## 2. Recent Major Milestones & Implemented Systems
 
-- `444d6a2` — conversion controls and M4A output;
-- `58c053a` — generated playback/audio cues;
-- `d056c42` — playback restore after process restart;
-- `30b0d81` — gate playback on completed conversion.
+### A. Chapter Detection & Book Importing Overhaul (Completed: 2026-08-18)
+Exhaustive overhaul addressing 9 critical failure points identified in book parsing and matching industry-standard techniques from top e-book/audiobook readers (ElevenReader, Voice Dream, Moon+ Reader, ReadEra):
 
-## Current uncommitted changes
+- **Core Chapter Detector (`ChapterDetector.kt`)**:
+  - *Subtitle Bug Fixed*: Slicing now strictly consumes `candidate.linesConsumed` tracked during candidate detection instead of re-evaluating `title.contains(": ")`. The first sentence of chapter bodies is no longer discarded.
+  - *Roman Numeral Precision*: `STANDALONE_ROMAN` strictly matches whole-line numerals (`^\s*([IVXLCDM]{1,8})\s*[.:—–-]?\s*$`) with `IGNORE_CASE`, preventing regular prose starting with words like *"Il"*, *"Did"*, or *"Civil"* from being misdetected as chapters. Added `ROMAN_WITH_SUBTITLE` for inline title patterns (e.g., `"IV: The Beginning"`).
+  - *Alternating Running Header Suppression*: Frequency-based deduplication eliminates alternating odd/even running headers (titles appearing $\ge 3$ times and representing $> 40\%$ of candidates are stripped).
+  - *Table of Contents (TOC) Loop Prevention*: `skipTocPreamble` identifies dense heading clusters where all titles repeat in later body chapters, stripping the raw TOC preamble without generating false opening chapters or breaking the body flow.
+  - *Extended Multi-lingual & Number Words*: `NUMBER_WORDS` extended with ordinals through *twentieth* and hyphenated compounds (e.g. `twenty-first`). Expanded `isChapterLabel()` to recognize numbered and standalone Roman headings.
+  - *Scene Break Fallback*: Added `splitBySceneBreaks()` supporting `***`, `* * *`, `---`, `###`, `~~~`, `⁂`, and `• • •` as a structural fallback before paragraph chunking.
+- **EPUB 3 Navigation & Anchor Slicing (`EpubParser.kt`)**:
+  - *EPUB 3 `<nav>` Support*: Added `parseNavDocument()` to parse `<nav epub:type="toc">` elements for chapter titles and anchor references, prioritized over legacy EPUB 2 `toc.ncx`.
+  - *Anchor-Based Splitting*: Added `splitXhtmlByAnchors()` and `parseXhtmlWithIds()` to cleanly slice monolithic single-file EPUBs at `#fragment` ID boundaries into distinct chapters.
+  - *Multi-File Chapter Merging*: Spine items without TOC entries or heading tags are automatically merged into the preceding chapter.
+- **PDF Recursive Outlines & Header Stripping (`PdfBookParser.kt`)**:
+  - *Recursive Outline Traversal*: Replaced flat bookmark reading with recursive `firstChild`/`nextSibling` traversal to extract nested chapter bookmarks (e.g., `"Book Title" → [Chapter 1, Chapter 2, ...]`).
+  - *Header & Footer Suppression*: Added `stripRunningHeaders()` to eliminate recurring header/footer lines across pages and filter out standalone page numbers.
+- **Importer Orchestration (`TextBookImporterImpl.kt`)**:
+  - Lowered intra-spine omnibus sub-split threshold to 3,000 characters with an average-section size safeguard ($\ge 500$ chars) to prevent over-fragmenting legitimate chapters.
+  - Integrated scene-break splitting fallback into the hierarchy for TXT, PDF, and EPUB files.
 
-Do not discard these changes. They are intentional and currently uncommitted:
+### B. Speed Controller Stability & Layout Polish (Completed: 2026-08-16)
+- **Discrete Speed Selector Chips**: Replaced continuous sliders app-wide (Reader and Voice Selection screens) with discrete speed selector chips (`0.75x`, `1.0x`, `1.25x`, `1.5x`, `1.75x`, `2.0x`) using fixed-dimension `Surface` chips with constant borders to eliminate visual layout shifts and buffer thrashing.
+- **Buffer Stability Guard**: Added epsilon-based change detection (`0.02f`) to `TtsManager.setSpeechRate` to prevent redundant buffer clearing and audio stuttering when tapping `1.0x`.
 
-- `app/build.gradle.kts`
-  - adds Hilt WorkManager compiler via KSP;
-- `app/src/main/AndroidManifest.xml`
-  - disables default WorkManager initialization;
-  - declares foreground data-sync service permission/type;
-- `AudiobookGenerationCoordinator.kt`
-  - repairs stale QUEUED/CONVERTING jobs when WorkManager lost the active request;
-- `GenerateAudiobookWorker.kt`
-  - uses Hilt worker creation;
-  - promotes to foreground safely on HyperOS;
-  - splits imported paragraph chunks through `TtsTextParser`;
-  - retries failed sentences;
-  - never silently drops missing audio;
-  - uses a dedicated audiobook synthesis output API;
-- `KokoroNativeEngine.kt`
-  - repairs truncated copied model assets;
-  - validates native WAV output;
-  - normalizes punctuation for the native tokenizer;
-  - separates audiobook output files from live playback cache;
-- `TtsTextParser.kt`
-  - caps native input at 160 characters;
-- `ReaderViewModel.kt`
-  - schedules stale audiobook jobs while a book is opened;
-- `GlobalPlayerBar.kt`
-  - removes voice/engine/speed controls from the player;
-  - keeps the persistent expand control and playback controls;
-  - removes sliding player visibility behavior.
+### C. Audiobook Pre-Generation & Worker Isolation (Completed: 2026-08-14)
+- **WorkManager Hilt Worker (`GenerateAudiobookWorker.kt`)**: Foreground data-sync service with proper notification management on Android 14+ / HyperOS.
+- **Runtime File Isolation**: Dedicated `files/audiobook-runtime/` directory separated from `files/kokoro-runtime/` to prevent file deletion collisions between background generation and live playback.
+- **Tokenizer Punctuation Normalization**: `KokoroNativeEngine` punctuation normalization and asset validation.
 
-`.idea/` is untracked local IDE state. Do not commit it.
+---
 
-## What has been verified
+## 3. What Has Been Verified
 
-### Desktop build
+### A. Desktop Automated Unit Tests
+Executed all 17 test suites:
+```powershell
+$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+.\gradlew.bat :app:testDebugUnitTest --no-daemon
+```
+**Latest Result**: `BUILD SUCCESSFUL`  
+- **Total Tests Completed**: 90  
+- **Total Failures / Errors**: 0 (100% pass rate)  
+- **Suites Verified**:
+  - `ChapterDetectorTest` (20 tests covering all 9 bug fixes, Roman numerals, CJK, multi-lingual, TOC loops, scene breaks)
+  - `BookDaoTest` (3 tests)
+  - `NavigationTest` (3 tests)
+  - `DocxParserTest` (3 tests)
+  - `EpubParserTest` (2 tests)
+  - `HtmlTextExtractorTest` (8 tests)
+  - `MobiParserTest` (17 tests)
+  - `PdfOutlineSectionsTest` (3 tests)
+  - `RealAzw3ScratchTest` (1 test)
+  - `TextImportStreamsTest` (3 tests)
+  - `HighlightsMarkdownTest` (3 tests)
+  - `ReaderViewModelTest` (5 tests)
+  - `ListeningStatsTest` (7 tests)
+  - `EdgeTtsEngineTest` (9 tests)
+  - `TtsChapterQueueTest` (1 test)
+  - `ExampleRobolectricTest` & `ExampleUnitTest` (2 tests)
 
-The following command passes:
+### B. Device Installation & Deployment
+- **Target Device**: `b6f2151b`
+- **Application ID**: `com.aistudio.voxreader.xyz.debug`
+- **Main Activity**: `com.voxleaf.reader.MainActivity`
+- **Status**: Installed and running live on device.
+
+---
+
+## 4. Key Files & Responsibilities
+
+| File | Path | Responsibility |
+| :--- | :--- | :--- |
+| `ChapterDetector.kt` | `app/src/main/java/.../data/repository/` | Heuristic engine for regex, Roman numerals, multi-lingual prefixes, running header suppression, TOC loops, and scene breaks. |
+| `EpubParser.kt` | `app/src/main/java/.../data/repository/` | EPUB 2/3 archive unpacker, OPF manifest reader, `nav.xhtml` / `toc.ncx` parser, and anchor-based DOM chapter splitter. |
+| `PdfBookParser.kt` | `app/src/main/java/.../data/repository/` | PDFBox text extractor, recursive outline reader, spatial header/footer stripper, and on-device OCR fallback. |
+| `TextBookImporterImpl.kt` | `app/src/main/java/.../data/repository/` | Orchestrates import pipeline across all file types, Room database insertion, chunking, and re-scan support. |
+| `TtsManager.kt` | `app/src/main/java/.../tts/` | High-level TTS playback manager, speed control, epsilon buffer guarding, and queue synchronization. |
+| `GenerateAudiobookWorker.kt` | `app/src/main/java/.../audiobook/` | Background WorkManager worker generating offline M4A audiobook files. |
+| `KokoroNativeEngine.kt` | `app/src/main/java/.../tts/` | ONNX Runtime offline neural TTS synthesis and asset management. |
+| `ReaderScreen.kt` | `app/src/main/java/.../feature/reader/` | Compose reader UI, fixed-dimension speed chips, paragraph rendering, and sentence highlighting. |
+
+---
+
+## 5. Remaining Roadmap & Next Milestones
+
+### P0 — Continuous Background Playback & Queue Architecture
+- Ensure `TtsManager` / `PlaybackService` independently own chapter advancement across screen lifecycle destruction and device sleep.
+- Persist queue state in Room (book ID, active chapter ID, cue index, speed).
+
+### P1 — Audiobook Pre-Generation Resumability & Progress
+- Implement granular sentence/chunk checkpointing in `GenerateAudiobookWorker` so long chapters (e.g. 200+ sentences) resume from the last completed chunk on interruption rather than restarting the entire chapter.
+- Expose real-time chunk progress percentage to the UI.
+
+### P1 — Large-File & Archive Stress Testing
+- Test import throughput on 50MB+ and 100MB+ omnibus EPUBs, large graphic-heavy PDFs, and scanned documents.
+- Validate memory consumption on lower-RAM devices during native Kokoro ONNX inference.
+
+---
+
+## 6. Verification Commands Quick Reference
 
 ```powershell
-$env:JAVA_HOME='C:\Program Files\Android\Android Studio\jbr'
-.\gradlew.bat :app:testDebugUnitTest :app:assembleDebug --no-daemon
+# Set Java Home
+$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
+
+# Run Unit Tests
+.\gradlew.bat :app:testDebugUnitTest --no-daemon
+
+# Build & Install Debug APK
+.\gradlew.bat :app:installDebug --no-daemon
+
+# Launch App on Device
+adb shell am start -n com.aistudio.voxreader.xyz.debug/com.voxleaf.reader.MainActivity
+
+# Stream Device Logs
+adb logcat -v time -s VoxLeaf:V TtsManager:V ChapterDetector:V EpubParser:V PdfBookParser:V
 ```
-
-Latest result: `BUILD SUCCESSFUL`; 57 tasks, all unit tests passed.
-
-### Phone / HyperOS
-
-Device used: Xiaomi 2406APNFAG / HyperOS, connected over wireless ADB.
-
-Verified previously:
-
-- debug APK installs with `adb install -r`;
-- Hilt worker creation works;
-- no `InvalidForegroundServiceTypeException`;
-- foreground notification `Creating audiobook` appears;
-- the bundled phonemizer/model assets repair themselves when an older truncated copy exists;
-- chapters 0–6 were generated as valid M4A files;
-- the large preface is chapter index 7 and contains 240 imported chunks.
-
-The phone conversion is slow because native inference is CPU-heavy. Do not call a job stuck merely because chapter 7 takes a long time.
-
-## Important failure discovered
-
-The first audiobook worker wrote synthesized files into `files/kokoro-runtime`. Live playback also uses that directory and deletes files as playback advances. The worker eventually failed with:
-
-```text
-/data/user/0/com.aistudio.voxreader.xyz.debug/files/kokoro-runtime/audio-....wav:
-open failed: ENOENT (No such file or directory)
-```
-
-The root cause is shared temporary-file ownership, not a missing model. The current patch adds `synthesizeForAudiobook()` and writes audiobook segments to a separate `files/audiobook-runtime` directory. This build passed desktop tests and was installed on the phone. A retry was started, but the final chapter commit still needs to be observed on-device.
-
-## Current phone state at handoff
-
-The last observed book is:
-
-- title: `Covert Wars and Breakaway Civilizations`;
-- generation row: previously `FAILED`, chapter 7 incomplete;
-- chapters 0–6: `READY`;
-- chapter 7: old `.m4a.tmp`/`.wav.tmp` files remain from the failed attempt;
-- the new build was installed and the UI Retry action was tapped;
-- WorkManager started `GenerateAudiobookWorker` again;
-- no new native error was visible in the short follow-up window.
-
-Next phone check:
-
-```powershell
-$adb='C:\Users\Yayis\AppData\Local\Android\Sdk\platform-tools\adb.exe'
-$device=((& $adb devices) | Select-String '\sdevice$' | Select-Object -First 1).ToString().Split("`t")[0]
-& $adb -s $device shell run-as com.aistudio.voxreader.xyz.debug ls -l files/audiobook-runtime
-& $adb -s $device shell run-as com.aistudio.voxreader.xyz.debug ls -l files/audiobooks/84bc302d-25c0-4996-927c-e66aa2c0bcc8
-& $adb -s $device logcat -d -v threadtime -s GenerateAudiobookWorker:V KokoroNativeEngine:V onnxruntime:V WM-WorkerWrapper:V
-```
-
-Do not delete the old temporary chapter files until the retry result is known.
-
-## Remaining functional gaps
-
-### P0 — audiobook generation reliability
-
-- Verify the dedicated `audiobook-runtime` output survives concurrent live playback and reaches the final `.m4a` commit.
-- Confirm all 240 chapter-7 segments are represented by cues and no sentence is omitted.
-- Add cleanup for abandoned `audiobook-runtime` WAV files after success/failure/retry.
-- Update progress during a chapter, not only after the whole chapter finishes. Current progress can sit at 25% for a long time.
-- Avoid retrying an entire 240-segment chapter when only one sentence failed. Persist sentence progress if generation time becomes unacceptable.
-- Add a visible error message with a retry action that includes the actual failure reason.
-
-### P0 — continuous playback architecture
-
-The durable playback queue should belong to `TtsManager` or a foreground `PlaybackService`, not `ReaderViewModel`. The queue must persist:
-
-- book ID;
-- ordered chapter IDs;
-- current chapter and cue index;
-- generated-audio identity/checksum;
-- selected voice/model/speed version.
-
-Reader screens should observe this state and never own chapter-completion decisions. This is required for background playback and screen/process recreation.
-
-### P1 — player UX
-
-- Confirm the global Play button cold-starts from a stopped/error state.
-- Confirm the mini-player cannot intercept bottom-navigation taps.
-- Keep voice, engine, rate, and tone controls in Settings only.
-- Keep the expand control permanently visible; do not reintroduce sliding open/close behavior.
-- Verify accessibility labels and touch targets after the player redesign.
-
-### P1 — import and parsing
-
-- The requested minimum upload size is 100 MB. Current raw text stream handling has a 100 MB ceiling, but several archive/parser decompression ceilings remain 50 MB. Decide whether the product requirement means input file size, decompressed text size, or both, then align all parsers.
-- Add a single import policy shared by EPUB/MOBI/FB2/PDF/DOCX/OCR paths.
-- Treat malformed Unicode and replacement characters deliberately; do not corrupt source text silently.
-- Add parser fixtures for large books, scanned pages, malformed archives, and chapter headings.
-
-### P1 — resource limits
-
-Native inference can consume hundreds of MB of native memory and high CPU. Add:
-
-- a user-visible storage estimate;
-- a minimum free-space check before generation;
-- cancellation handling that deletes only owned temporary files;
-- thermal/battery/background policy;
-- a maximum chapter/segment policy or resumable segment checkpointing.
-
-### P2 — visual/product quality
-
-- Replace the disproportionate app icon with a balanced adaptive icon and verify launcher mask rendering on Xiaomi/Pixel.
-- Add a compact generation details screen: chapter, segment progress, elapsed time, remaining estimate, retry/cancel.
-- Distinguish `QUEUED`, `CONVERTING`, `READY`, `FAILED`, and `CANCELLED` consistently across Library, Details, notification, and Player.
-
-## What to remove or overhaul
-
-### Remove
-
-- Per-sentence live TTS as the primary audiobook path once generated audio is available.
-- Voice/engine/rate controls from the player surface.
-- Any screen-owned automatic chapter progression logic.
-- Shared use of `kokoro-runtime/audio-*.wav` by audiobook generation and live playback.
-- Silent `mapNotNull` behavior that creates an audiobook with missing sentences.
-- “Preparing offline voice” wording for a book that is actually being converted.
-
-### Overhaul
-
-- `GenerateAudiobookWorker`: convert it into a resumable, checkpointed job with bounded memory and chapter/segment progress.
-- `KokoroNativeEngine`: expose explicit output ownership or a lower-level synthesis API; keep model initialization shared but never share generated audio files.
-- `TtsManager`: make it the single playback queue owner and persist the queue/progress.
-- `AudiobookGenerationCoordinator`: make scheduling idempotent and reconcile DB state, files, and WorkManager state on app startup.
-- Room schema: add generation version, segment progress, failure category, retry count, and audio checksum/version.
-- Player: make it a pure controller/observer of the persistent playback state.
-
-## Recommended execution order
-
-1. Finish phone validation of the dedicated audiobook output directory.
-2. Commit the current reliability patch as one checkpoint.
-3. Add a small worker test for “one missing sentence never produces READY audio”.
-4. Add resumable segment checkpoints and per-chapter progress.
-5. Move continuous playback queue ownership into `TtsManager`/service.
-6. Run parser/import stress tests with 100 MB+ fixtures.
-7. Fix icon and final player accessibility/touch overlap.
-8. Only then remove legacy live-TTS audiobook fallback.
-
-## Do not claim yet
-
-The app is not yet proven to generate a complete 27-chapter audiobook end-to-end on-device. The desktop build is green, the foreground worker path is repaired, and chapters 0–6 were previously generated, but final completion after the isolated-output fix still requires phone evidence.

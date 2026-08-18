@@ -1,8 +1,8 @@
-package com.example.tts.onnx
+package com.voxleaf.reader.tts.onnx
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.example.domain.model.tts.SynthesisRequest
+import com.voxleaf.reader.domain.model.tts.SynthesisRequest
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertTrue
 import org.junit.Before

@@ -13,11 +13,11 @@
 # routes against Screen::class.qualifiedName.
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.**
--keep,includedescriptorclasses class com.example.core.navigation.**$$serializer { *; }
--keepclassmembers class com.example.core.navigation.** {
+-keep,includedescriptorclasses class com.voxleaf.reader.core.navigation.**$$serializer { *; }
+-keepclassmembers class com.voxleaf.reader.core.navigation.** {
     *** Companion;
 }
--keepclasseswithmembers class com.example.core.navigation.** {
+-keepclasseswithmembers class com.voxleaf.reader.core.navigation.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
 
