@@ -157,7 +157,9 @@ object EpubParser {
         for (chapter in chapters) {
             if (chapter.title == null && chapter.paragraphs.none { it.isHeading } && mergedChapters.isNotEmpty()) {
                 // Merge into previous chapter
-                val prev = mergedChapters.removeLast()
+                // removeAt, not removeLast(): List.removeLast() is API 35+, and below that
+                // it throws NoSuchMethodError at runtime rather than failing to compile.
+                val prev = mergedChapters.removeAt(mergedChapters.lastIndex)
                 mergedChapters += Chapter(prev.title, prev.paragraphs + chapter.paragraphs)
             } else {
                 mergedChapters += chapter

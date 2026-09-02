@@ -199,11 +199,13 @@ object PdfBookParser {
             val lines = pageText.lines().toMutableList()
             // Strip header
             if (lines.isNotEmpty() && (headerLines.contains(lines.first().trim()) || pageNumberRegex.matches(lines.first().trim()))) {
-                lines.removeFirst()
+                // removeAt, not removeFirst()/removeLast(): those are API 35+ and throw
+                // NoSuchMethodError below it, which is every device older than Android 15.
+                lines.removeAt(0)
             }
             // Strip footer
             if (lines.isNotEmpty() && (footerLines.contains(lines.last().trim()) || pageNumberRegex.matches(lines.last().trim()))) {
-                lines.removeLast()
+                lines.removeAt(lines.lastIndex)
             }
             lines.joinToString("\n").trim()
         }
