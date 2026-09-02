@@ -36,7 +36,8 @@ val ObsidianCardHigh = Color(0xFF334155)
 val ObsidianBorder = Color(0xFF334155)
 val ObsidianInk = Color(0xFFF3F4F6)
 val ObsidianMuted = Color(0xFF9CA3AF)
-val ObsidianSubtle = Color(0xFF6B7280)
+// Tertiary copy is used on the dark canvas; #9CA3AF keeps normal-sized labels above 4.5:1.
+val ObsidianSubtle = Color(0xFF9CA3AF)
 
 val AzureGradient = Brush.horizontalGradient(
     listOf(Color(0xFF38BDF8), Color(0xFF2563EB))
@@ -53,10 +54,39 @@ val PaperDark = ObsidianDark
 val PaperSurface = ObsidianSurface
 val PaperInk = ObsidianInk
 
-val PaperLight = Color(0xFFF8FAFC)
-val PaperLightSurface = Color(0xFFFFFFFF)
-val PaperLightInk = Color(0xFF0F172A)
-val PaperLightMuted = Color(0xFFE2E8F0)
+/**
+ * Warm off-white light theme.
+ *
+ * Deliberately no pure white anywhere: #FFFFFF next to a warm ink reads as a browser page and is
+ * harsh under a reading lamp, which is the wrong feel for an app people stare at for hours. The
+ * ramp is warm-neutral (a touch of yellow, no blue) so it reads as paper rather than as a screen,
+ * and every step stays inside the off-white family so raised surfaces lift without going white.
+ */
+val PaperLight = Color(0xFFF7F4EE)
+val PaperLightSurface = Color(0xFFFCFAF6)
+val PaperLightInk = Color(0xFF1C1917)
+val PaperLightMuted = Color(0xFFEBE6DC)
+
+// Tonal ramp for light mode. Material's default light containers are cool/lavender-tinted, so
+// these must be supplied explicitly or cards drift away from the off-white canvas.
+val PaperLightContainerLowest = Color(0xFFFFFEFB)
+val PaperLightContainerLow = Color(0xFFFCFAF6)
+val PaperLightContainer = Color(0xFFF2EEE6)
+val PaperLightContainerHigh = Color(0xFFEBE6DC)
+val PaperLightContainerHighest = Color(0xFFE4DED2)
+
+/** Secondary copy on the off-white canvas; #57534E holds ~7:1, well clear of the 4.5:1 floor. */
+val PaperLightSubtle = Color(0xFF57534E)
+val PaperLightOutline = Color(0xFFD6CFC2)
+
+/**
+ * The dark-mode accent (#38BDF8) is far too light to sit on off-white — roughly 1.9:1, failing
+ * both text and non-text contrast. Light mode therefore uses a deeper tone of the same hue family.
+ * This is the single token to change if the accent family is ever revisited.
+ */
+val PaperLightAccent = Color(0xFF0369A1)
+val PaperLightAccentContainer = Color(0xFFDCEEFA)
+val PaperLightOnAccentContainer = Color(0xFF02456B)
 
 val Leaf = AzurePrimary
 val LeafDark = AzureDim

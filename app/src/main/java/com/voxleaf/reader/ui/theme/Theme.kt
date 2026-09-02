@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.Color
 
 private val DarkColorScheme = darkColorScheme(
     primary = AzurePrimary,
-    onPrimary = Color.White,
+    onPrimary = ObsidianDark,
     primaryContainer = AzureContainer,
     onPrimaryContainer = AzureLight,
     secondary = AzureLight,
@@ -32,21 +32,29 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = AzurePrimary,
+    primary = PaperLightAccent,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFE0F2FE),
-    onPrimaryContainer = Color(0xFF0369A1),
-    secondary = AzureDim,
+    primaryContainer = PaperLightAccentContainer,
+    onPrimaryContainer = PaperLightOnAccentContainer,
+    secondary = PaperLightAccent,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE0F2FE),
-    onSecondaryContainer = Color(0xFF0369A1),
+    secondaryContainer = PaperLightAccentContainer,
+    onSecondaryContainer = PaperLightOnAccentContainer,
     background = PaperLight,
     onBackground = PaperLightInk,
     surface = PaperLightSurface,
     onSurface = PaperLightInk,
     surfaceVariant = PaperLightMuted,
-    onSurfaceVariant = Color(0xFF475569),
-    outline = Color(0xFFCBD5E1)
+    onSurfaceVariant = PaperLightSubtle,
+    outline = PaperLightOutline,
+    outlineVariant = PaperLightContainerHighest,
+    // Without these the app falls back to Material's cool default containers and cards stop
+    // matching the off-white canvas.
+    surfaceContainerLowest = PaperLightContainerLowest,
+    surfaceContainerLow = PaperLightContainerLow,
+    surfaceContainer = PaperLightContainer,
+    surfaceContainerHigh = PaperLightContainerHigh,
+    surfaceContainerHighest = PaperLightContainerHighest
 )
 
 @Composable
