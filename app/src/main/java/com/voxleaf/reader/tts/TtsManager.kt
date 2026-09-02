@@ -84,8 +84,8 @@ data class TtsState(
 @Singleton
 class TtsManager @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val offlineEngine: Lazy<SherpaTtsEngine>,
-    private val edgeEngine: Lazy<EdgeTtsEngine>,
+    @OfflineEngine private val offlineEngine: Lazy<TtsEngine>,
+    @OnlineEngine private val edgeEngine: Lazy<TtsEngine>,
     private val appSettingsManager: AppSettingsManager
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)

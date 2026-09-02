@@ -18,8 +18,7 @@ import com.voxleaf.reader.domain.repository.Book
 import com.voxleaf.reader.core.ui.getTitleForRoute
 import com.voxleaf.reader.ui.theme.MyApplicationTheme
 import com.voxleaf.reader.ui.theme.ObsidianDark
-import com.voxleaf.reader.tts.EdgeTtsEngine
-import com.voxleaf.reader.tts.SherpaTtsEngine
+import com.voxleaf.reader.tts.TtsEngine
 import com.voxleaf.reader.tts.TtsManager
 import dagger.Lazy
 import org.junit.Assert.assertEquals
@@ -42,12 +41,8 @@ class NavigationTest {
     fun appStartsAtSplash() {
         composeTestRule.mainClock.autoAdvance = false
         lateinit var navController: TestNavHostController
-        val unusedNativeEngine = object : Lazy<SherpaTtsEngine> {
-            override fun get(): SherpaTtsEngine = error("This navigation test does not synthesize speech")
-        }
-        val unusedEdgeEngine = object : Lazy<EdgeTtsEngine> {
-            override fun get(): EdgeTtsEngine = error("This navigation test does not synthesize speech")
-        }
+        val unusedNativeEngine = Lazy<TtsEngine> { error("This navigation test does not synthesize speech") }
+        val unusedEdgeEngine = Lazy<TtsEngine> { error("This navigation test does not synthesize speech") }
         val appSettingsManager = AppSettingsManager(ApplicationProvider.getApplicationContext())
         val ttsManager = TtsManager(
             ApplicationProvider.getApplicationContext(),
