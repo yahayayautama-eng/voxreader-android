@@ -29,7 +29,6 @@ class AppSettingsManager @Inject constructor(
         val READER_FONT_SIZE_KEY = androidx.datastore.preferences.core.intPreferencesKey("reader_font_size")
         val READER_LINE_SPACING_KEY = floatPreferencesKey("reader_line_spacing")
         val TTS_RATE_KEY = floatPreferencesKey("tts_rate")
-        val TTS_PITCH_KEY = floatPreferencesKey("tts_pitch")
         val TTS_VOICE_KEY = stringPreferencesKey("tts_voice")
         val TTS_ENGINE_KEY = stringPreferencesKey("tts_engine")
         val AUTO_PLAY_KEY = booleanPreferencesKey("auto_play_on_open")
@@ -51,7 +50,6 @@ class AppSettingsManager @Inject constructor(
     val readerFontSizeFlow: Flow<Int> = context.dataStore.data.map { it[READER_FONT_SIZE_KEY] ?: 18 }
     val readerLineSpacingFlow: Flow<Float> = context.dataStore.data.map { it[READER_LINE_SPACING_KEY] ?: 1.75f }
     val ttsRateFlow: Flow<Float> = context.dataStore.data.map { it[TTS_RATE_KEY] ?: 1.0f }
-    val ttsPitchFlow: Flow<Float> = context.dataStore.data.map { it[TTS_PITCH_KEY] ?: 1.0f }
     val ttsVoiceFlow: Flow<String> = context.dataStore.data.map { it[TTS_VOICE_KEY] ?: SherpaTtsEngine.DEFAULT_VOICE }
     /** Raw storage key ("offline"/"edge") rather than the `tts` package's [com.voxleaf.reader.tts.EngineId]
      *  enum, so this data-layer class doesn't depend on it — callers map with `EngineId.fromStorageKey`. */
@@ -114,9 +112,6 @@ class AppSettingsManager @Inject constructor(
         context.dataStore.edit { it[TTS_RATE_KEY] = rate }
     }
     
-    suspend fun setTtsPitch(pitch: Float) {
-        context.dataStore.edit { it[TTS_PITCH_KEY] = pitch }
-    }
     
     suspend fun setTtsVoice(voice: String) {
         context.dataStore.edit { it[TTS_VOICE_KEY] = voice }

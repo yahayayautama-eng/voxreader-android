@@ -30,7 +30,6 @@ data class ReaderUiState(
     val ttsRate: Float = 1.0f,
     val ttsVoice: String = "default",
     val ttsEngineId: EngineId = EngineId.OFFLINE,
-    val ttsPitch: Float = 1.0f,
     val availableVoices: List<com.voxleaf.reader.tts.EngineVoice> = emptyList(),
     val sleepTimerMinutes: Int? = null,
     val textChunks: List<com.voxleaf.reader.domain.model.tts.TextChunk> = emptyList(),
