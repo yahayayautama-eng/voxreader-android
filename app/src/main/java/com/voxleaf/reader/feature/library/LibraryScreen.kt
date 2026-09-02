@@ -101,7 +101,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.voxleaf.reader.R
-import com.voxleaf.reader.core.ui.LibraryHeaderMaxWidth
 import com.voxleaf.reader.core.ui.LibraryMaxContentWidth
 import com.voxleaf.reader.core.ui.libraryColumnCount
 import com.voxleaf.reader.core.ui.components.BookSpine
@@ -117,7 +116,9 @@ import com.voxleaf.reader.ui.theme.BrandItalic
 import kotlin.math.roundToInt
 
 /** The FAB plus bottom nav eat this much; the last grid row must clear both. */
-private val ScrollBottomClearance = 130.dp
+// Must clear the bottom navigation bar and the Import button stacked above it; at 130dp the
+// button sat on top of the last row's title.
+private val ScrollBottomClearance = 184.dp
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -194,7 +195,6 @@ fun LibraryScreenContent(
         }
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
-            com.voxleaf.reader.core.ui.components.AmbientStickerDecorations(alpha = 0.25f)
             when (uiState) {
                 is LibraryUiState.Loading -> ShelfSkeleton(columns = 3)
                 is LibraryUiState.Error -> ErrorState(
@@ -236,7 +236,7 @@ private fun SelectionContextBar(
     ) {
         Column(
             modifier = Modifier
-                .widthIn(max = LibraryHeaderMaxWidth)
+                .widthIn(max = LibraryMaxContentWidth)
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
@@ -398,10 +398,7 @@ private fun LibraryShelf(
                 }
             }
 
-            fullWidth(columns) {
-                Spacer(modifier = Modifier.height(4.dp))
-                SectionLabel("The library")
-            }
+            fullWidth(columns) { Spacer(modifier = Modifier.height(4.dp)) }
             if (!uiState.isSelectionMode) {
                 fullWidth(columns) { LibraryControls(uiState, onAction) }
             }
@@ -463,7 +460,7 @@ private fun LibraryHeader(searchQuery: String, onAction: (LibraryUiAction) -> Un
     // Arranged like a masthead rather than a title stacked on a sentence: the wordmark carries the
     // page, a hairline closes it, and the strapline sits under the rule as small tracked caps so it
     // reads as a subtitle instead of competing with the first book on screen.
-    Column(modifier = Modifier.widthIn(max = LibraryHeaderMaxWidth).fillMaxWidth()) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -481,31 +478,9 @@ private fun LibraryHeader(searchQuery: String, onAction: (LibraryUiAction) -> Un
                     color = MaterialTheme.colorScheme.onBackground
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                com.voxleaf.reader.core.ui.components.FloatingStickerBadge(
-                    icon = androidx.compose.material.icons.Icons.Outlined.AutoStories,
-                    color = com.voxleaf.reader.ui.theme.DenimPrimary,
-                    rotation = -6f,
-                    size = 40.dp,
-                    iconSize = 20.dp
-                )
-                com.voxleaf.reader.core.ui.components.FloatingStickerBadge(
-                    icon = androidx.compose.material.icons.Icons.Outlined.Mic,
-                    color = Color(0xFF60A5FA),
-                    rotation = 6f,
-                    size = 40.dp,
-                    iconSize = 20.dp
-                )
-            }
         }
         Spacer(modifier = Modifier.height(10.dp))
         HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), thickness = 1.dp)
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            "YOUR LIBRARY · READ ALOUD",
-            style = Eyebrow,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
         Spacer(modifier = Modifier.height(20.dp))
         OutlinedTextField(
             value = searchQuery,
@@ -517,7 +492,7 @@ private fun LibraryHeader(searchQuery: String, onAction: (LibraryUiAction) -> Un
             colors = OutlinedTextFieldDefaults.colors(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
-                unfocusedBorderColor = Color.White.copy(alpha = 0.08f),
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
                 focusedBorderColor = MaterialTheme.colorScheme.primary
             ),
             modifier = Modifier.fillMaxWidth().testTag("library_search_input")

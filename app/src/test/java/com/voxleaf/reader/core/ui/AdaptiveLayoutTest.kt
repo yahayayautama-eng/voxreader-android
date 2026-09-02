@@ -22,14 +22,18 @@ class AdaptiveLayoutTest {
         assertEquals(NavigationChrome.RAIL, navigationChromeFor(840.dp))
     }
 
+    /**
+     * Columns follow a target cover width, so a cover stays about the same physical size whether the
+     * window is a phone or a tablet, rather than the tiles shrinking as the window grows.
+     */
     @Test
-    fun `library columns adapt at width boundaries and remain bounded when expanded`() {
-        assertEquals(3, libraryColumnCount(599.dp))
-        assertEquals(5, libraryColumnCount(600.dp))
-        assertEquals(5, libraryColumnCount(839.dp))
-        assertEquals(7, libraryColumnCount(840.dp))
-        assertEquals(7, libraryColumnCount(LibraryMaxContentWidth))
-        assertEquals(7, libraryColumnCount(2000.dp))
+    fun `library columns follow the available width`() {
+        assertEquals(MinLibraryColumns, libraryColumnCount(260.dp))
+        assertEquals(3, libraryColumnCount(411.dp))
+        assertEquals(4, libraryColumnCount(599.dp))
+        assertEquals(5, libraryColumnCount(720.dp))
+        assertEquals(MaxLibraryColumns, libraryColumnCount(LibraryMaxContentWidth))
+        assertEquals(MaxLibraryColumns, libraryColumnCount(4000.dp))
     }
 
     @Test

@@ -204,10 +204,11 @@ fun BookDetailsScreen(
                                 modifier = Modifier.weight(1f).testTag("bookmarks_button")
                             )
                             DetailsOutlineButton(
-                                text = "Delete",
-                                icon = Icons.Outlined.DeleteOutline,
-                                onClick = { showDeleteConfirmation = true },
-                                modifier = Modifier.weight(1f).testTag("remove_book_button")
+                                text = if (book.isFavorite) "In favorites" else "Favorite",
+                                icon = if (book.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                tint = if (book.isFavorite) MaterialTheme.colorScheme.primary else null,
+                                onClick = { viewModel.handleAction(BookDetailsUiAction.OnToggleFavorite) },
+                                modifier = Modifier.weight(1f).testTag("details_favorite_button")
                             )
                         }
                         Spacer(modifier = Modifier.height(10.dp))
@@ -215,13 +216,6 @@ fun BookDetailsScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
-                            DetailsOutlineButton(
-                                text = if (book.isFavorite) "In favorites" else "Favorite",
-                                icon = if (book.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                tint = if (book.isFavorite) MaterialTheme.colorScheme.primary else null,
-                                onClick = { viewModel.handleAction(BookDetailsUiAction.OnToggleFavorite) },
-                                modifier = Modifier.weight(1f).testTag("details_favorite_button")
-                            )
                             DetailsOutlineButton(
                                 text = "Edit details",
                                 icon = Icons.Outlined.Edit,
@@ -240,6 +234,17 @@ fun BookDetailsScreen(
                             enabled = !state.isRedetectingChapters,
                             onClick = { viewModel.handleAction(BookDetailsUiAction.OnRedetectChapters) },
                             modifier = Modifier.fillMaxWidth().testTag("redetect_chapters_button")
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        // Destructive, so it leaves the grid of equal-weight actions and takes the
+                        // error colour: deleting a book should not look like favouriting one.
+                        DetailsOutlineButton(
+                            text = "Delete",
+                            icon = Icons.Outlined.DeleteOutline,
+                            onClick = { showDeleteConfirmation = true },
+                            tint = MaterialTheme.colorScheme.error,
+                            contentColor = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.fillMaxWidth().testTag("remove_book_button")
                         )
                         state.redetectMessage?.let { message ->
                             Spacer(modifier = Modifier.height(8.dp))
@@ -262,7 +267,7 @@ fun BookDetailsScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(24.dp))
-                        HorizontalDivider(color = Color.White.copy(alpha = 0.07f))
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Spacer(modifier = Modifier.height(16.dp))
                         SectionLabel("Chapters")
                     }
@@ -510,14 +515,18 @@ private fun DetailsOutlineButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     tint: Color? = null,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    contentColor: Color? = null
 ) {
     OutlinedButton(
         onClick = onClick,
         enabled = enabled,
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
-        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+        // Was a hardcoded white at 12%, which is invisible on the light canvas.
+        border = BorderStroke(1.dp, (contentColor ?: MaterialTheme.colorScheme.outline).copy(alpha = 0.5f)),
+        colors = ButtonDefaults.outlinedButtonColors(
+            contentColor = contentColor ?: MaterialTheme.colorScheme.onSurface
+        ),
         modifier = modifier.heightIn(min = 48.dp)
     ) {
         Icon(icon, contentDescription = null, tint = tint ?: LocalContentColor.current, modifier = Modifier.size(18.dp))
@@ -564,7 +573,7 @@ private fun ChapterRow(
             Text("$minutes min", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
-    HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
+    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 }
 
 @Composable
@@ -578,7 +587,7 @@ private fun StatusDot(state: ChapterState) {
         )
         ChapterState.Upcoming -> Box(
             modifier = Modifier.size(8.dp).clip(CircleShape)
-                .border(1.dp, Color.White.copy(alpha = 0.25f), CircleShape)
+                .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape)
         )
     }
 }

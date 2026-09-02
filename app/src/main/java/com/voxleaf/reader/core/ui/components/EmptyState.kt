@@ -58,7 +58,6 @@ fun EmptyState(
         contentAlignment = Alignment.Center
     ) {
         if (showShelf) {
-            AmbientStickerDecorations(alpha = 0.12f)
         }
 
         Column(

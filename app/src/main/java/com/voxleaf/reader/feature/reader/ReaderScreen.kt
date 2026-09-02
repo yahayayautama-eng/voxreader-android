@@ -1,6 +1,8 @@
 package com.voxleaf.reader.feature.reader
 
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.Image
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -273,7 +275,6 @@ fun ReaderScreen(
                 .background(bgColor)
                 .padding(paddingValues)
         ) {
-            com.voxleaf.reader.core.ui.components.AmbientStickerDecorations(alpha = 0.08f)
             when {
                 uiState.isLoading -> LoadingState()
                 uiState.errorMessage != null -> ErrorState(message = uiState.errorMessage!!, onRetry = { viewModel.loadBook(bookId, bookmarkChapterIndex, bookmarkSentenceIndex) })
@@ -1059,8 +1060,12 @@ fun ReaderTtsBottomBar(
         shadowElevation = 2.dp,
         modifier = modifier.fillMaxWidth()
     ) {
+      Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
         Column(
             modifier = Modifier
+                // Capped and centred: spread across a tablet the transport put ten-inch gaps
+                // between controls that belong together as one cluster.
+                .widthIn(max = com.voxleaf.reader.core.ui.ShellPlayerMaxWidth)
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
@@ -1072,6 +1077,22 @@ fun ReaderTtsBottomBar(
                 horizontalArrangement = Arrangement.Start,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // The cover anchors the listening surface. Without it the reader is a wall of text
+                // over a transport strip, with nothing showing which book is actually playing.
+                val cover = com.voxleaf.reader.core.ui.components.rememberBookCoverBitmap(
+                    uiState.book?.coverImagePath
+                )
+                cover?.let { bitmap ->
+                    Image(
+                        bitmap = bitmap,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(width = 32.dp, height = 48.dp)
+                            .clip(RoundedCornerShape(4.dp))
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val voiceName = uiState.availableVoices
                         .firstOrNull { it.id == uiState.ttsVoice }
@@ -1117,12 +1138,16 @@ fun ReaderTtsBottomBar(
                 onSeekToSentence = onSeekToSentence
             )
             Spacer(modifier = Modifier.height(6.dp))
-            // Playback controls
+            // One row, not two: transport and the secondary actions sat in separate rows, which put
+            // two bands of chrome under the text on a phone for six controls that fit on one line.
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(onClick = onSleepTimer) {
+                    Icon(Icons.Outlined.Bedtime, contentDescription = stringResource(com.voxleaf.reader.R.string.reader_sleep_timer), tint = textColor)
+                }
                 IconButton(onClick = onSkipBack) {
                     Icon(Icons.Outlined.Replay10, contentDescription = stringResource(com.voxleaf.reader.R.string.reader_back_ten), tint = textColor)
                 }
@@ -1160,16 +1185,6 @@ fun ReaderTtsBottomBar(
                 IconButton(onClick = onSkipForward) {
                     Icon(Icons.Outlined.Forward10, contentDescription = stringResource(com.voxleaf.reader.R.string.reader_forward_ten), tint = textColor)
                 }
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(onClick = onSleepTimer) {
-                    Icon(Icons.Outlined.Bedtime, contentDescription = stringResource(com.voxleaf.reader.R.string.reader_sleep_timer), tint = textColor)
-                }
                 IconButton(onClick = onVoiceSettings) {
                     Icon(Icons.Outlined.RecordVoiceOver, contentDescription = stringResource(com.voxleaf.reader.R.string.reader_voice_speed), tint = textColor)
                 }
@@ -1178,5 +1193,6 @@ fun ReaderTtsBottomBar(
                 }
             }
         }
+      }
     }
 }

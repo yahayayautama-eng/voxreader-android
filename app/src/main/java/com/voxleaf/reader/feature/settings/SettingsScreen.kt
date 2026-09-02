@@ -190,7 +190,6 @@ fun SettingsScreen(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        com.voxleaf.reader.core.ui.components.AmbientStickerDecorations(alpha = 0.20f)
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -631,7 +630,7 @@ private fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
 @Composable
 private fun GroupDivider() {
     HorizontalDivider(
-        color = Color.White.copy(alpha = 0.06f),
+        color = MaterialTheme.colorScheme.outlineVariant,
         modifier = Modifier.padding(start = 56.dp)
     )
 }
@@ -721,7 +720,7 @@ private fun SettingsSwitchItem(
                 checkedBorderColor = MaterialTheme.colorScheme.primary,
                 uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-                uncheckedBorderColor = Color.White.copy(alpha = 0.12f)
+                uncheckedBorderColor = MaterialTheme.colorScheme.outline
             )
         )
     }
