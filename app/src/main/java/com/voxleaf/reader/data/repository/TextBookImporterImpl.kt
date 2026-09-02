@@ -615,7 +615,11 @@ class TextBookImporterImpl @Inject constructor(
         // Prefer the PDF's own bookmarks — an authored table of contents beats any guess. Failing that,
         // detect headings, then scene breaks, then group into readable stretches. One section per page
         // is the last resort: a page break is a print artifact, not a chapter boundary.
+        // Font size before words: an authored outline is still the best answer, but where there is
+        // none, the type sizes the document was set in say where headings are far more reliably than
+        // matching heading-shaped strings — which is what promoted running headers to chapters.
         val structured = PdfBookParser.sectionsFromOutline(cleanedPages, pdf.outline)
+            ?: PdfBookParser.sectionsFromFontSize(pdf.lines)
             ?: ChapterDetector.split(fullText)
             ?: ChapterDetector.splitBySceneBreaks(fullText)
         val grouped = structured?.map { ImportedSection(it.title, it.content) }

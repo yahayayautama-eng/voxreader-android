@@ -7,6 +7,7 @@ import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.interactive.documentnavigation.outline.PDOutlineItem
 import com.tom_roush.pdfbox.rendering.PDFRenderer
 import com.tom_roush.pdfbox.text.PDFTextStripper
+import com.tom_roush.pdfbox.text.TextPosition
 import java.io.File
 
 object PdfBookParser {
@@ -23,6 +24,8 @@ object PdfBookParser {
         /** One entry per document page, blanks included, so [outline] page indices stay aligned. */
         val pages: List<String>,
         val outline: List<OutlineEntry>,
+        /** Every extracted line with its type size; empty for OCR'd pages, which carry no font data. */
+        val lines: List<TextLine>,
         val coverBitmap: Bitmap?
     )
 
@@ -42,7 +45,7 @@ object PdfBookParser {
                 if (totalPages > MAX_PAGES) {
                     throw ParseException("PDF has too many pages. Maximum supported size is $MAX_PAGES pages.")
                 }
-                val stripper = PDFTextStripper()
+                val stripper = LineCapturingStripper()
                 val extractedPages = mutableListOf<String>()
                 for (pageNumber in 1..totalPages) {
                     stripper.startPage = pageNumber
@@ -99,6 +102,8 @@ object PdfBookParser {
                     author = document.documentInformation?.author?.trim(),
                     pages = finalPages,
                     outline = readOutline(document),
+                    // Empty when the page text came from OCR: rendered pixels carry no font metrics.
+                    lines = if (hasDigitalText) stripper.lines else emptyList(),
                     coverBitmap = coverBitmap
                 )
             }
@@ -203,6 +208,89 @@ object PdfBookParser {
             lines.joinToString("\n").trim()
         }
     }
+
+    /**
+     * One extracted line with the type size it was set in.
+     *
+     * Font size is the signal that separates a heading from a running header: both repeat near the
+     * top of a page and both are short, but a heading is set larger than the body and a running
+     * header is not. Plain text extraction discards this, which is why heading detection downstream
+     * had only the words themselves to go on.
+     */
+    data class TextLine(val text: String, val fontSize: Float, val pageIndex: Int)
+
+    /**
+     * Captures each line's type size alongside its text.
+     *
+     * [PDFTextStripper.getText] flattens [writeString] into a plain string and drops the geometry
+     * PDFBox has already computed, so this subscribes to the callback instead of re-parsing anything.
+     */
+    private class LineCapturingStripper : PDFTextStripper() {
+        val lines = mutableListOf<TextLine>()
+
+        override fun writeString(text: String, textPositions: MutableList<TextPosition>) {
+            val trimmed = text.trim()
+            if (trimmed.isNotEmpty() && textPositions.isNotEmpty()) {
+                // The median glyph size, not the maximum: a body line that opens with a drop cap or
+                // carries an inline symbol would otherwise be promoted to a heading.
+                val sizes = textPositions.map { it.fontSizeInPt }.filter { it > 0f }.sorted()
+                if (sizes.isNotEmpty()) {
+                    lines += TextLine(trimmed, sizes[sizes.size / 2], currentPageNo - 1)
+                }
+            }
+            super.writeString(text, textPositions)
+        }
+    }
+
+    /**
+     * Groups [lines] into sections at the lines set noticeably larger than the body text.
+     *
+     * Pure so it can be tested without a PDF. Returns null whenever the type sizes cannot support a
+     * confident answer — a uniformly-set document, or one where so many lines look like headings
+     * that the ratio has stopped meaning anything — so the caller falls through to the existing
+     * text heuristics rather than acting on a bad guess.
+     */
+    fun sectionsFromFontSize(lines: List<TextLine>): List<ChapterDetector.Section>? {
+        if (lines.size < MIN_LINES_FOR_FONT_ANALYSIS) return null
+
+        // Body size is the size most of the *text* is set in, weighted by characters rather than by
+        // line count, so a run of short headings cannot outvote the prose around them.
+        val weightBySize = mutableMapOf<Int, Int>()
+        lines.forEach { line ->
+            val bucket = line.fontSize.roundToIntSize()
+            weightBySize[bucket] = (weightBySize[bucket] ?: 0) + line.text.length
+        }
+        val bodySize = weightBySize.maxByOrNull { it.value }?.key ?: return null
+        if (bodySize <= 0) return null
+
+        val headingIndices = lines.indices.filter { index ->
+            val line = lines[index]
+            line.fontSize >= bodySize * HEADING_SIZE_RATIO &&
+                line.text.length <= MAX_HEADING_CHARS &&
+                line.text.any(Char::isLetter)
+        }
+        if (headingIndices.size < 2) return null
+        // A document where a large share of lines outrank the body is not a document with many
+        // chapters; it is one whose type sizes do not carry structure.
+        if (headingIndices.size > lines.size * MAX_HEADING_SHARE) return null
+
+        return headingIndices.mapIndexedNotNull { position, startIndex ->
+            val endIndex = headingIndices.getOrNull(position + 1) ?: lines.size
+            val body = lines.subList(startIndex + 1, endIndex)
+                .joinToString(NEWLINE) { it.text }
+                .trim()
+            if (body.isBlank()) null else ChapterDetector.Section(lines[startIndex].text, body)
+        }.takeIf { it.size >= 2 }
+    }
+
+    private fun Float.roundToIntSize(): Int = (this + 0.5f).toInt()
+
+    private const val MIN_LINES_FOR_FONT_ANALYSIS = 20
+    /** 15% larger than body text; below this, size differences are leading or hinting noise. */
+    private const val HEADING_SIZE_RATIO = 1.15f
+    private const val MAX_HEADING_CHARS = 120
+    private const val MAX_HEADING_SHARE = 0.25f
+    private const val NEWLINE = "\n"
 
     /**
      * Slices [pages] at the [outline] boundaries. Pure so it can be tested without a PDF; returns
