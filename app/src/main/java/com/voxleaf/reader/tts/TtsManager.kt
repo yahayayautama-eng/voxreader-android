@@ -60,7 +60,6 @@ data class TtsState(
     val currentSentenceIndex: Int = 0,
     val totalSentences: Int = 0,
     val speechRate: Float = 1.0f,
-    val pitch: Float = 1.0f,
     val engineId: EngineId = EngineId.OFFLINE,
     val isLoadingVoices: Boolean = false,
     val selectedVoicePath: String = SherpaTtsEngine.DEFAULT_VOICE,
@@ -68,6 +67,15 @@ data class TtsState(
         EngineVoice(id = SherpaTtsEngine.voiceId(it.speakerId), displayName = it.displayName, locale = "en-US")
     },
     val sleepTimerMinutes: Int? = null,
+    /**
+     * Estimated clock for the current chapter, in milliseconds.
+     *
+     * Streamed sentences are synthesized one at a time, so there is no single decoded file whose
+     * duration could be read; the position is estimated from word counts at a narration pace. Good
+     * enough to drive a lock-screen scrubber, and deliberately not presented as exact.
+     */
+    val estimatedPositionMs: Long = 0L,
+    val estimatedDurationMs: Long = 0L,
     val nowPlaying: NowPlaying? = null,
     val playbackCompletionId: Long = 0
 )
@@ -144,6 +152,41 @@ class TtsManager @Inject constructor(
         startSentenceSession(next.second, startSentenceIndex, chapters[next.first].nowPlaying)
     }
 
+    /** Words before [sentenceIndex], and in the whole chapter, converted to milliseconds. */
+    private fun estimateClock(sentenceIndex: Int): Pair<Long, Long> {
+        if (currentSentences.isEmpty()) return 0L to 0L
+        val rate = _state.value.speechRate.coerceAtLeast(0.1f)
+        val wordsPerMs = (WORDS_PER_MINUTE * rate) / 60_000f
+        fun words(range: List<String>) = range.sumOf { sentence ->
+            sentence.split(WHITESPACE).count { it.isNotBlank() }
+        }
+        val spoken = words(currentSentences.subList(0, sentenceIndex.coerceIn(0, currentSentences.size)))
+        val total = words(currentSentences)
+        return (spoken / wordsPerMs).toLong() to (total / wordsPerMs).toLong()
+    }
+
+    private fun publishClock(sentenceIndex: Int) {
+        val (position, duration) = estimateClock(sentenceIndex)
+        _state.update { it.copy(estimatedPositionMs = position, estimatedDurationMs = duration) }
+    }
+
+    /** Maps a lock-screen / Android Auto scrub back onto the sentence that covers that moment. */
+    fun seekToMillis(positionMs: Long) {
+        if (currentSentences.isEmpty()) return
+        val rate = _state.value.speechRate.coerceAtLeast(0.1f)
+        val wordsPerMs = (WORDS_PER_MINUTE * rate) / 60_000f
+        var elapsed = 0f
+        val target = positionMs.coerceAtLeast(0L)
+        currentSentences.forEachIndexed { index, sentence ->
+            elapsed += sentence.split(WHITESPACE).count { it.isNotBlank() } / wordsPerMs
+            if (elapsed >= target) {
+                seekToSentence(index)
+                return
+            }
+        }
+        seekToSentence(currentSentences.lastIndex)
+    }
+
     fun seekToSentence(sentenceIndex: Int) {
         if (currentSentences.isEmpty()) return
         startSentenceSession(currentSentences, sentenceIndex, _state.value.nowPlaying)
@@ -171,6 +214,7 @@ class TtsManager @Inject constructor(
                 nowPlaying = nowPlaying
             )
         }
+        publishClock(start)
         if (sentences.isNotEmpty()) startBuffering(generation)
     }
 
@@ -272,9 +316,6 @@ class TtsManager @Inject constructor(
         rebufferAheadOfPlayhead()
     }
 
-    fun setPitch(pitch: Float) {
-        _state.update { it.copy(pitch = pitch) }
-    }
 
     fun setVoice(voicePath: String) {
         if (voicePath == _state.value.selectedVoicePath) return
@@ -468,6 +509,7 @@ class TtsManager @Inject constructor(
                 if (_state.value.isPaused) return@setOnPreparedListener
                 preparedPlayer.start()
                 _state.update { it.copy(isSpeaking = true, isPaused = false, isPreparing = false, currentSentenceIndex = index) }
+                publishClock(index)
             }
             nextPlayer.setOnCompletionListener { completedPlayer ->
                 completedPlayer.release()
@@ -564,5 +606,9 @@ class TtsManager @Inject constructor(
         /** Start playback on the very first synthesized sentence; remaining sentences synthesize concurrently. */
         const val START_PLAYBACK_AFTER_SENTENCES = 1
         const val BUFFER_CHECK_DELAY_MS = 50L
+
+        /** Conversational narration pace, matching the Reader's own scrubber estimate. */
+        const val WORDS_PER_MINUTE = 155f
+        val WHITESPACE = Regex("\\s+")
     }
 }

@@ -65,6 +65,7 @@ class PlaybackService : Service() {
                 override fun onStop() { ttsManager.stop() }
                 override fun onSkipToNext() { ttsManager.skip(+1) }
                 override fun onSkipToPrevious() { ttsManager.skip(-1) }
+                override fun onSeekTo(pos: Long) { ttsManager.seekToMillis(pos) }
             })
             isActive = true
         }
@@ -103,6 +104,7 @@ class PlaybackService : Service() {
             MediaMetadata.Builder()
                 .putString(MediaMetadata.METADATA_KEY_TITLE, state.nowPlaying?.chapterTitle ?: "Vox Reader")
                 .putString(MediaMetadata.METADATA_KEY_ARTIST, state.nowPlaying?.bookTitle ?: "")
+                .putLong(MediaMetadata.METADATA_KEY_DURATION, state.estimatedDurationMs)
                 .apply {
                     coverBitmap(state.nowPlaying?.coverImagePath)?.let {
                         putBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART, it)
@@ -115,7 +117,7 @@ class PlaybackService : Service() {
                 .setActions(
                     PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
                         PlaybackState.ACTION_SKIP_TO_NEXT or PlaybackState.ACTION_SKIP_TO_PREVIOUS or
-                        PlaybackState.ACTION_STOP
+                        PlaybackState.ACTION_SEEK_TO or PlaybackState.ACTION_STOP
                 )
                 .setState(
                     when {
@@ -124,8 +126,11 @@ class PlaybackService : Service() {
                         state.isPreparing -> PlaybackState.STATE_BUFFERING
                         else -> PlaybackState.STATE_STOPPED
                     },
-                    PlaybackState.PLAYBACK_POSITION_UNKNOWN,
-                    1f
+                    // A real position rather than PLAYBACK_POSITION_UNKNOWN, so the shade and
+                    // Android Auto can draw and drive a scrubber. Estimated, not decoded — see
+                    // TtsState.estimatedPositionMs.
+                    state.estimatedPositionMs,
+                    state.speechRate
                 )
                 .build()
         )
