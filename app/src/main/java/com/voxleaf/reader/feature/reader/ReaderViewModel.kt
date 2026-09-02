@@ -76,7 +76,10 @@ class ReaderViewModel @Inject constructor(
                 .collect { (engine, voice, rate) ->
                     ttsManager.setSpeechRate(rate)
                     ttsManager.setEngineAndVoice(engine, voice)
-                    _uiState.update { it.copy(ttsRate = rate, ttsVoice = voice) }
+                    // Only the rate is taken from settings here. The voice shown must be the one
+                    // TtsManager actually resolved for the active engine, which observeTtsState
+                    // supplies; echoing the stored id back over it reintroduced the mismatch.
+                    _uiState.update { it.copy(ttsRate = rate) }
                 }
         }
     }

@@ -33,6 +33,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Toc
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.BookmarkAdd
+import androidx.compose.material.icons.outlined.BorderColor
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Forward10
 import androidx.compose.material.icons.outlined.Pause
@@ -169,13 +170,17 @@ fun ReaderScreen(
         topBar = {
           Column(modifier = Modifier.readerChromeVisibility(chromeVisible)) {
             TopAppBar(
+                // Taller than the default so a wrapped title and its chapter line both fit.
+                expandedHeight = 84.dp,
                 title = {
                     Column {
                         Text(
                             text = uiState.book?.title ?: stringResource(com.voxleaf.reader.R.string.reader_title_fallback),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = textColor,
-                            maxLines = 1,
+                            // Two lines: with a back arrow and four actions flanking it, a long book
+                            // title had so little width left that it truncated to a few characters.
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
                         uiState.currentChapter?.takeIf { showChapterInTopBar }?.let { chapter ->
@@ -224,21 +229,12 @@ fun ReaderScreen(
                         modifier = Modifier.testTag("highlight_current_sentence_button")
                     ) {
                         Icon(
-                            Icons.Outlined.Tune,
+                            Icons.Outlined.BorderColor,
                             contentDescription = stringResource(com.voxleaf.reader.R.string.reader_highlight_current),
                             tint = textColor
                         )
                     }
-                    IconButton(
-                        onClick = { showBookmarkDialog = true },
-                        modifier = Modifier.testTag("add_bookmark_button")
-                    ) {
-                        Icon(
-                            Icons.Outlined.BookmarkAdd,
-                            contentDescription = stringResource(com.voxleaf.reader.R.string.reader_add_bookmark),
-                            tint = textColor
-                        )
-                    }
+
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = bgColor)
             )

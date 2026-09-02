@@ -161,6 +161,45 @@ class TtsManagerTest {
         assertEquals("en-US-GuyNeural", manager.state.value.selectedVoicePath)
     }
 
+    /**
+     * Half-switching is what produced a bundled offline narrator labelled "Online": the engine moved
+     * to Edge, its voice list failed to load, and the previous engine's voices stayed in place under
+     * the new engine's name.
+     */
+    @Test
+    fun `an engine whose voices fail to load does not become the active engine`() = runTest(dispatcher) {
+        online.voices = emptyList()
+        val manager = manager()
+        val voiceBefore = manager.state.value.selectedVoicePath
+
+        manager.setEngine(EngineId.EDGE)
+        advanceUntilIdle()
+
+        assertEquals(EngineId.OFFLINE, manager.state.value.engineId)
+        assertEquals(voiceBefore, manager.state.value.selectedVoicePath)
+        assertNotNull(manager.state.value.errorMessage)
+    }
+
+    /**
+     * While the new engine's voices are still loading the app must not already claim that engine:
+     * that window is what showed a bundled offline narrator labelled "Online".
+     */
+    @Test
+    fun `the engine does not change until its voices have loaded`() = runTest(dispatcher) {
+        val manager = manager()
+
+        manager.setEngine(EngineId.EDGE)
+        // Deliberately no advanceUntilIdle: this is the in-flight window.
+
+        assertEquals(EngineId.OFFLINE, manager.state.value.engineId)
+        assertEquals("sherpa:libritts:79", manager.state.value.selectedVoicePath)
+        assertTrue(manager.state.value.isLoadingVoices)
+
+        advanceUntilIdle()
+        assertEquals(EngineId.EDGE, manager.state.value.engineId)
+        assertEquals("en-US-AriaNeural", manager.state.value.selectedVoicePath)
+    }
+
     @Test
     fun `speech rate is clamped to a usable range`() = runTest(dispatcher) {
         val manager = manager()

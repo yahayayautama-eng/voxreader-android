@@ -105,6 +105,8 @@ class TtsManager @Inject constructor(
     private var nextSentenceToPlay = 0
     private var waitingForInitialBuffer = false
     private var sleepTimerJob: Job? = null
+    /** Guards against an earlier engine switch landing after a later one. */
+    private var engineSwitchToken = 0
 
     private val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val audioAttributes = AudioAttributes.Builder()
@@ -349,13 +351,21 @@ class TtsManager @Inject constructor(
         }
     }
 
+    /**
+     * The engine and the voice list it offers are changed in one update, never separately.
+     *
+     * Setting the engine up front and filling in its voices when they arrived left a window — and,
+     * if the fetch failed, a permanent state — where the app reported one engine while holding the
+     * other's voices. The reader then showed a bundled offline narrator labelled "Online", and
+     * synthesis was asked for a voice the active engine does not have.
+     */
     private fun switchEngine(id: EngineId, preferredVoiceId: String?) {
-        _state.update { it.copy(engineId = id, isLoadingVoices = true, errorMessage = null) }
+        val token = ++engineSwitchToken
+        _state.update { it.copy(isLoadingVoices = true, errorMessage = null) }
         scope.launch {
             val voices = engineFor(id).listVoices()
-            // The user (or the settings replay above) may have moved on to a different engine while
-            // this was in flight; don't clobber whatever is current now.
-            if (id != _state.value.engineId) return@launch
+            // A later switch has superseded this one; its result is what should stand.
+            if (token != engineSwitchToken) return@launch
             if (voices.isEmpty()) {
                 _state.update {
                     it.copy(
@@ -367,13 +377,23 @@ class TtsManager @Inject constructor(
                         }
                     )
                 }
+                // Keep the stored preference in step with the engine that is actually active, or
+                // every launch would retry the switch and land back in the same broken state.
+                if (id != _state.value.engineId) {
+                    appSettingsManager.setTtsEngine(_state.value.engineId.storageKey)
+                }
                 return@launch
             }
             val chosen = voices.firstOrNull { it.id == preferredVoiceId }
                 ?: voices.firstOrNull { it.locale.startsWith("en-US") && it.displayName.contains("Aria", ignoreCase = true) }
                 ?: voices.first()
             _state.update {
-                it.copy(availableVoices = voices, selectedVoicePath = chosen.id, isLoadingVoices = false)
+                it.copy(
+                    engineId = id,
+                    availableVoices = voices,
+                    selectedVoicePath = chosen.id,
+                    isLoadingVoices = false
+                )
             }
             rebufferAheadOfPlayhead()
         }
