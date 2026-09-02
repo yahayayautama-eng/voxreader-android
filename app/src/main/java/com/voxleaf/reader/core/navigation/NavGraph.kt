@@ -37,7 +37,9 @@ fun VoxLeafNavGraph(
     ttsManager: TtsManager,
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController(),
-    startDestination: Screen = Screen.Splash
+    startDestination: Screen = Screen.Splash,
+    incomingDocumentUris: List<String> = emptyList(),
+    onIncomingDocumentsConsumed: () -> Unit = {}
 ) {
     // Hosts the spine -> cover container transform; the scope has to outlive both destinations.
     SharedTransitionLayout {
@@ -80,6 +82,8 @@ fun VoxLeafNavGraph(
             }
             composable<Screen.Import> {
                 ImportScreen(
+                    incomingDocumentUris = incomingDocumentUris,
+                    onIncomingDocumentsConsumed = onIncomingDocumentsConsumed,
                     onNavigateToBookDetails = { bookId ->
                         navController.navigate(Screen.BookDetails(bookId)) {
                             popUpTo(Screen.Import) { inclusive = true }

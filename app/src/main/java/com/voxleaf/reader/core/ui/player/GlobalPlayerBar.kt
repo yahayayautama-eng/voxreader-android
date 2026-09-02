@@ -35,7 +35,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.voxleaf.reader.tts.TtsManager
-import com.voxleaf.reader.ui.theme.SignalOrange
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 
@@ -57,7 +56,8 @@ class GlobalPlayerViewModel @Inject constructor(
 @Composable
 fun GlobalPlayerBar(
     onNavigateToReader: (bookId: String, chapterIndex: Int, sentenceIndex: Int) -> Unit,
-    viewModel: GlobalPlayerViewModel = hiltViewModel()
+    viewModel: GlobalPlayerViewModel = hiltViewModel(),
+    modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val nowPlaying = state.nowPlaying ?: return
@@ -67,7 +67,7 @@ fun GlobalPlayerBar(
         tonalElevation = 6.dp,
         shadowElevation = 8.dp,
         shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .clickable {
                 onNavigateToReader(
@@ -82,7 +82,7 @@ fun GlobalPlayerBar(
             LinearProgressIndicator(
                 progress = { (state.currentSentenceIndex + 1).toFloat() / state.totalSentences.coerceAtLeast(1) },
                 modifier = Modifier.fillMaxWidth().height(3.dp),
-                color = com.voxleaf.reader.ui.theme.AzurePrimary,
+                color = MaterialTheme.colorScheme.primary,
                 trackColor = Color.Transparent
             )
             Row(
@@ -109,7 +109,7 @@ fun GlobalPlayerBar(
                         style = MaterialTheme.typography.labelSmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = com.voxleaf.reader.ui.theme.AzureLight
+                        color = MaterialTheme.colorScheme.primary
                     )
                 }
                 IconButton(onClick = { viewModel.skip(-1) }) {
@@ -124,7 +124,7 @@ fun GlobalPlayerBar(
                     modifier = Modifier
                         .size(42.dp)
                         .clip(CircleShape)
-                        .background(com.voxleaf.reader.ui.theme.AzureGradient)
+                        .background(MaterialTheme.colorScheme.primary)
                         .clickable { viewModel.playPause() }
                         .testTag("global_player_play_pause")
                 ) {
@@ -135,7 +135,7 @@ fun GlobalPlayerBar(
                             Icons.Outlined.PlayArrow
                         },
                         contentDescription = if (state.isSpeaking) "Pause" else "Play",
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(22.dp)
                     )
                 }

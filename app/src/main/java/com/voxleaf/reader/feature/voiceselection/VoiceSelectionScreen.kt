@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -17,6 +19,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -24,6 +28,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -37,17 +42,40 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.voxleaf.reader.tts.EngineId
-import com.voxleaf.reader.ui.theme.SignalOrange
 
 @Composable
 fun VoiceSelectionScreen(
     viewModel: VoiceSelectionViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val favoriteIds by viewModel.favoriteVoiceIds.collectAsStateWithLifecycle(initialValue = emptySet())
+    val recentIds by viewModel.recentVoiceIds.collectAsStateWithLifecycle(initialValue = emptyList())
     var query by remember { mutableStateOf("") }
+    var voiceFilter by remember { mutableStateOf(VoiceFilter.ALL) }
+    val filtered = remember(uiState.availableVoices, query, favoriteIds, recentIds, voiceFilter) {
+        uiState.availableVoices.asSequence()
+            .filter {
+                query.isBlank() || it.displayName.contains(query, ignoreCase = true) ||
+                    it.locale.contains(query, ignoreCase = true)
+            }
+            .filter {
+                when (voiceFilter) {
+                    VoiceFilter.ALL -> true
+                    VoiceFilter.FAVORITES -> it.id in favoriteIds
+                    VoiceFilter.RECENT -> it.id in recentIds
+                }
+            }
+            .sortedWith(
+                compareBy<com.voxleaf.reader.tts.EngineVoice> { if (it.id in favoriteIds) 0 else 1 }
+                    .thenBy { recentIds.indexOf(it.id).takeIf { index -> index >= 0 } ?: Int.MAX_VALUE }
+                    .thenBy { it.displayName }
+            )
+            .toList()
+    }
 
     Column(
         modifier = Modifier
@@ -178,8 +206,29 @@ fun VoiceSelectionScreen(
             )
         }
 
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
+        ) {
+            VoiceFilter.entries.forEach { filter ->
+                EngineChip(
+                    label = stringResource(
+                        when (filter) {
+                            VoiceFilter.ALL -> com.voxleaf.reader.R.string.voice_filter_all
+                            VoiceFilter.FAVORITES -> com.voxleaf.reader.R.string.voice_filter_favorites
+                            VoiceFilter.RECENT -> com.voxleaf.reader.R.string.voice_filter_recent
+                        }
+                    ),
+                    selected = voiceFilter == filter,
+                    onClick = { voiceFilter = filter },
+                    testTag = "voice_filter_${filter.name.lowercase()}",
+                    modifier = Modifier.width(116.dp)
+                )
+            }
+        }
+
         Text(
-            text = "Available voices · ${uiState.availableVoices.size}",
+            text = stringResource(com.voxleaf.reader.R.string.voice_available_count, filtered.size),
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             modifier = Modifier.padding(vertical = 8.dp)
         )
@@ -202,16 +251,11 @@ fun VoiceSelectionScreen(
             }
 
             else -> {
-                val filtered = remember(uiState.availableVoices, query) {
-                    if (query.isBlank()) {
-                        uiState.availableVoices
-                    } else {
-                        uiState.availableVoices.filter {
-                            it.displayName.contains(query, ignoreCase = true) || it.locale.contains(query, ignoreCase = true)
-                        }
+                if (filtered.isEmpty()) {
+                    Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
+                        Text(stringResource(com.voxleaf.reader.R.string.voice_no_matches))
                     }
-                }
-                LazyColumn(
+                } else LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.weight(1f)
                 ) {
@@ -231,23 +275,30 @@ fun VoiceSelectionScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
                                     RadioButton(
                                         selected = isSelected,
                                         onClick = { viewModel.setVoice(voice.id) }
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = voice.displayName,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                                    )
+                                    Column {
+                                        Text(
+                                            text = voice.displayName,
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                        Text(voice.locale, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    }
                                 }
-                                if (isSelected) {
+                                IconButton(onClick = { viewModel.toggleFavorite(voice.id) }) {
                                     Icon(
-                                        Icons.Default.Check,
-                                        contentDescription = "Selected",
-                                        tint = MaterialTheme.colorScheme.primary
+                                        if (voice.id in favoriteIds) Icons.Outlined.Star else Icons.Outlined.StarBorder,
+                                        contentDescription = stringResource(
+                                            if (voice.id in favoriteIds) com.voxleaf.reader.R.string.voice_remove_favorite
+                                            else com.voxleaf.reader.R.string.voice_add_favorite,
+                                            voice.displayName
+                                        ),
+                                        tint = if (voice.id in favoriteIds) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
                             }
@@ -259,6 +310,8 @@ fun VoiceSelectionScreen(
     }
 }
 
+private enum class VoiceFilter { ALL, FAVORITES, RECENT }
+
 @Composable
 private fun EngineChip(
     label: String,
@@ -268,7 +321,7 @@ private fun EngineChip(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        color = if (selected) SignalOrange.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceContainer,
+        color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else MaterialTheme.colorScheme.surfaceContainer,
         shape = RoundedCornerShape(12.dp),
         onClick = onClick,
         modifier = modifier.testTag(testTag)
@@ -277,7 +330,7 @@ private fun EngineChip(
             text = label,
             style = MaterialTheme.typography.labelLarge,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) SignalOrange else MaterialTheme.colorScheme.onSurfaceVariant,
+            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
         )

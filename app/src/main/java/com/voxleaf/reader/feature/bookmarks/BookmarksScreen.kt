@@ -2,6 +2,7 @@ package com.voxleaf.reader.feature.bookmarks
 
 import android.content.Context
 import android.content.Intent
+import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -23,15 +24,24 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.Bookmarks
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.IosShare
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,28 +53,32 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.voxleaf.reader.R
 import com.voxleaf.reader.core.ui.components.ConfirmationDialog
 import com.voxleaf.reader.core.ui.components.EmptyState
 import com.voxleaf.reader.core.ui.components.toDisplayTitle
-import com.voxleaf.reader.domain.repository.Book
 import com.voxleaf.reader.domain.repository.BookRepository
 import com.voxleaf.reader.domain.repository.Bookmark
 import com.voxleaf.reader.domain.repository.Highlight
+import com.voxleaf.reader.ui.theme.BrandItalic
 import com.voxleaf.reader.ui.theme.HighlightColor
 import com.voxleaf.reader.ui.theme.SpineColor
-import com.voxleaf.reader.ui.theme.TextTertiary
-import com.voxleaf.reader.ui.theme.VoxLeafSerif
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -74,493 +88,657 @@ import java.text.DateFormat
 import java.util.Date
 import javax.inject.Inject
 
-/** A bookmark without its book is orphaned; the shelf grouping is what makes the list navigable. */
 data class BookmarkShelf(
     val bookId: String,
     val bookTitle: String,
     val bookmarks: List<Bookmark>
 )
 
-/** The same grouping for marked passages, ordered as they appear in the book rather than by date. */
 data class HighlightShelf(
     val bookId: String,
     val bookTitle: String,
     val highlights: List<Highlight>
 )
 
-/**
- * Notes are only worth taking if they can leave. Markdown because it pastes intact into Obsidian,
- * Notion, and every plain editor — no exporter per destination.
- */
 fun buildHighlightsMarkdown(shelves: List<HighlightShelf>): String = buildString {
     appendLine("# Vox Reader highlights")
-    shelves.forEach { shelf ->
+    shelves.sortedWith(
+        compareBy(String.CASE_INSENSITIVE_ORDER) { shelf: HighlightShelf -> shelf.bookTitle.trim() }
+            .thenBy { it.bookId }
+    ).forEach { shelf ->
         appendLine()
         appendLine("## ${shelf.bookTitle}")
         shelf.highlights
+            .sortedWith(compareBy({ it.chapterIndex }, { it.sentenceIndex }, { it.timestamp }, { it.id }))
             .groupBy { it.chapterTitle }
             .forEach { (chapterTitle, items) ->
+            appendLine()
+            appendLine("### $chapterTitle")
+            items.forEach { highlight ->
                 appendLine()
-                appendLine("### $chapterTitle")
-                items.forEach { highlight ->
+                appendLine("> ${highlight.text.trim()}")
+                highlight.note?.takeIf { it.isNotBlank() }?.let { note ->
                     appendLine()
-                    appendLine("> ${highlight.text.trim()}")
-                    highlight.note?.takeIf { it.isNotBlank() }?.let { note ->
-                        appendLine()
-                        appendLine(note.trim())
-                    }
+                    appendLine(note.trim())
                 }
             }
+        }
     }
+}
+
+enum class SavedItemsTab(@param:StringRes val labelRes: Int) {
+    BOOKMARKS(R.string.bookmarks_tab_bookmarks),
+    HIGHLIGHTS(R.string.bookmarks_tab_highlights)
+}
+
+enum class SavedItemsSort(@param:StringRes val labelRes: Int) {
+    NEWEST(R.string.bookmarks_sort_newest),
+    BOOK(R.string.bookmarks_sort_book),
+    LOCATION(R.string.bookmarks_sort_location)
+}
+
+data class BookmarksUiState(
+    val selectedTab: SavedItemsTab = SavedItemsTab.BOOKMARKS,
+    val query: String = "",
+    val selectedSort: SavedItemsSort = SavedItemsSort.NEWEST,
+    val allBookmarkShelves: List<BookmarkShelf> = emptyList(),
+    val bookmarkShelves: List<BookmarkShelf> = emptyList(),
+    val allHighlightShelves: List<HighlightShelf> = emptyList(),
+    val highlightShelves: List<HighlightShelf> = emptyList()
+) {
+    val visibleBookmarkCount: Int get() = bookmarkShelves.sumOf { it.bookmarks.size }
+    val visibleHighlightCount: Int get() = highlightShelves.sumOf { it.highlights.size }
 }
 
 @HiltViewModel
 class BookmarksViewModel @Inject constructor(
     private val bookRepository: BookRepository
 ) : ViewModel() {
+    private val selectedTab = MutableStateFlow(SavedItemsTab.BOOKMARKS)
+    private val query = MutableStateFlow("")
+    private val selectedSort = MutableStateFlow(SavedItemsSort.NEWEST)
 
-    val shelves: StateFlow<List<BookmarkShelf>> =
-        combine(bookRepository.getBookmarks(), bookRepository.getBooks()) { bookmarks, books ->
-            val titleById = books.associate { it.id to it.title }
-            bookmarks
-                .sortedByDescending { it.timestamp }
-                .groupBy { it.bookId }
-                .map { (bookId, items) ->
-                    BookmarkShelf(
-                        bookId = bookId,
-                        bookTitle = titleById[bookId] ?: "Removed document",
-                        bookmarks = items
-                    )
-                }
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
-        )
+    private val bookmarkShelves = combine(
+        bookRepository.getBookmarks(),
+        bookRepository.getBooks()
+    ) { bookmarks, books ->
+        val titleById = books.associate { it.id to it.title }
+        bookmarks.groupBy { it.bookId }.map { (bookId, items) ->
+            BookmarkShelf(bookId, titleById[bookId].orEmpty(), items)
+        }
+    }
+    private val highlightShelves = combine(
+        bookRepository.getHighlights(),
+        bookRepository.getBooks()
+    ) { highlights, books ->
+        val titleById = books.associate { it.id to it.title }
+        highlights.groupBy { it.bookId }.map { (bookId, items) ->
+            HighlightShelf(bookId, titleById[bookId].orEmpty(), items)
+        }
+    }
 
-    val highlightShelves: StateFlow<List<HighlightShelf>> =
-        combine(bookRepository.getHighlights(), bookRepository.getBooks()) { highlights, books ->
-            val titleById = books.associate { it.id to it.title }
-            highlights
-                .groupBy { it.bookId }
-                .map { (bookId, items) ->
-                    HighlightShelf(
-                        bookId = bookId,
-                        bookTitle = titleById[bookId] ?: "Removed document",
-                        // Reading order, so an export reads like the book and not like a activity log.
-                        highlights = items.sortedWith(compareBy({ it.chapterIndex }, { it.sentenceIndex }))
-                    )
-                }
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = emptyList()
+    val uiState: StateFlow<BookmarksUiState> = combine(
+        bookmarkShelves,
+        highlightShelves,
+        selectedTab,
+        query,
+        selectedSort
+    ) { allBookmarks, allHighlights, tab, currentQuery, sort ->
+        BookmarksUiState(
+            selectedTab = tab,
+            query = currentQuery,
+            selectedSort = sort,
+            allBookmarkShelves = allBookmarks,
+            bookmarkShelves = filterAndSortBookmarks(allBookmarks, currentQuery, sort),
+            allHighlightShelves = allHighlights,
+            highlightShelves = filterAndSortHighlights(allHighlights, currentQuery, sort)
         )
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = BookmarksUiState()
+    )
+
+    fun selectTab(tab: SavedItemsTab) {
+        selectedTab.value = tab
+    }
+
+    fun onQueryChange(value: String) {
+        query.value = value
+    }
+
+    fun onSortSelect(sort: SavedItemsSort) {
+        selectedSort.value = sort
+    }
 
     fun deleteBookmark(id: String) {
-        viewModelScope.launch {
-            bookRepository.removeBookmark(id)
-        }
+        viewModelScope.launch { bookRepository.removeBookmark(id) }
     }
 
     fun deleteHighlight(id: String) {
-        viewModelScope.launch {
-            bookRepository.removeHighlight(id)
-        }
+        viewModelScope.launch { bookRepository.removeHighlight(id) }
     }
 }
 
-private enum class AnnotationTab(val label: String) { Places("Saved places"), Highlights("Highlights") }
+internal fun filterAndSortBookmarks(
+    shelves: List<BookmarkShelf>,
+    query: String,
+    sort: SavedItemsSort
+): List<BookmarkShelf> {
+    val normalized = query.trim()
+    return shelves.mapNotNull { shelf ->
+        val matches = shelf.bookmarks.filter { bookmark ->
+            normalized.isEmpty() || shelf.bookTitle.contains(normalized, ignoreCase = true) ||
+                bookmark.chapterTitle.contains(normalized, ignoreCase = true) ||
+                bookmark.textSnippet.contains(normalized, ignoreCase = true) ||
+                bookmark.note?.contains(normalized, ignoreCase = true) == true
+        }
+        if (matches.isEmpty()) null else shelf.copy(bookmarks = sortBookmarks(matches, sort))
+    }.sortedWith(bookmarkShelfComparator(sort))
+}
+
+internal fun filterAndSortHighlights(
+    shelves: List<HighlightShelf>,
+    query: String,
+    sort: SavedItemsSort
+): List<HighlightShelf> {
+    val normalized = query.trim()
+    return shelves.mapNotNull { shelf ->
+        val matches = shelf.highlights.filter { highlight ->
+            normalized.isEmpty() || shelf.bookTitle.contains(normalized, ignoreCase = true) ||
+                highlight.chapterTitle.contains(normalized, ignoreCase = true) ||
+                highlight.text.contains(normalized, ignoreCase = true) ||
+                highlight.note?.contains(normalized, ignoreCase = true) == true
+        }
+        if (matches.isEmpty()) null else shelf.copy(highlights = sortHighlights(matches, sort))
+    }.sortedWith(highlightShelfComparator(sort))
+}
+
+private fun sortBookmarks(items: List<Bookmark>, sort: SavedItemsSort): List<Bookmark> = when (sort) {
+    SavedItemsSort.NEWEST, SavedItemsSort.BOOK -> items.sortedByDescending { it.timestamp }
+    SavedItemsSort.LOCATION -> items.sortedWith(compareBy({ it.chapterIndex }, { it.sentenceIndex }))
+}
+
+private fun sortHighlights(items: List<Highlight>, sort: SavedItemsSort): List<Highlight> = when (sort) {
+    SavedItemsSort.NEWEST, SavedItemsSort.BOOK -> items.sortedByDescending { it.timestamp }
+    SavedItemsSort.LOCATION -> items.sortedWith(compareBy({ it.chapterIndex }, { it.sentenceIndex }))
+}
+
+private fun bookmarkShelfComparator(sort: SavedItemsSort): Comparator<BookmarkShelf> = when (sort) {
+    SavedItemsSort.NEWEST -> compareByDescending { it.bookmarks.maxOfOrNull(Bookmark::timestamp) ?: 0L }
+    SavedItemsSort.BOOK, SavedItemsSort.LOCATION ->
+        compareBy(String.CASE_INSENSITIVE_ORDER) { it.bookTitle.trim() }
+}
+
+private fun highlightShelfComparator(sort: SavedItemsSort): Comparator<HighlightShelf> = when (sort) {
+    SavedItemsSort.NEWEST -> compareByDescending { it.highlights.maxOfOrNull(Highlight::timestamp) ?: 0L }
+    SavedItemsSort.BOOK, SavedItemsSort.LOCATION ->
+        compareBy(String.CASE_INSENSITIVE_ORDER) { it.bookTitle.trim() }
+}
 
 @Composable
 fun BookmarksScreen(
     onNavigateToReader: (Bookmark) -> Unit,
     viewModel: BookmarksViewModel = hiltViewModel()
 ) {
-    val shelves by viewModel.shelves.collectAsStateWithLifecycle()
-    val highlightShelves by viewModel.highlightShelves.collectAsStateWithLifecycle()
-    var pendingDelete by remember { mutableStateOf<Bookmark?>(null) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    BookmarksScreenContent(
+        uiState = uiState,
+        onTabSelect = viewModel::selectTab,
+        onQueryChange = viewModel::onQueryChange,
+        onSortSelect = viewModel::onSortSelect,
+        onNavigateToReader = onNavigateToReader,
+        onDeleteBookmark = viewModel::deleteBookmark,
+        onDeleteHighlight = viewModel::deleteHighlight
+    )
+}
+
+@Composable
+internal fun BookmarksScreenContent(
+    uiState: BookmarksUiState,
+    onTabSelect: (SavedItemsTab) -> Unit,
+    onQueryChange: (String) -> Unit,
+    onSortSelect: (SavedItemsSort) -> Unit,
+    onNavigateToReader: (Bookmark) -> Unit,
+    onDeleteBookmark: (String) -> Unit,
+    onDeleteHighlight: (String) -> Unit
+) {
+    var pendingBookmarkDelete by remember { mutableStateOf<Bookmark?>(null) }
     var pendingHighlightDelete by remember { mutableStateOf<Highlight?>(null) }
-    var tab by remember { mutableStateOf(AnnotationTab.Places) }
     val context = LocalContext.current
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 20.dp, end = 12.dp, top = 20.dp)
-        ) {
-            Text(
-                text = "Marks",
-                fontFamily = VoxLeafSerif,
-                fontStyle = FontStyle.Italic,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 28.sp,
-                color = MaterialTheme.colorScheme.onBackground,
-                modifier = Modifier.weight(1f)
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Column(modifier = Modifier.widthIn(max = 900.dp).fillMaxSize()) {
+            BookmarksHeader(uiState, context)
+            SavedItemsTabs(uiState.selectedTab, onTabSelect)
+            SavedItemsControls(uiState, onQueryChange, onSortSelect)
+            SavedItemsList(
+                uiState = uiState,
+                onNavigateToReader = onNavigateToReader,
+                onDeleteBookmark = { pendingBookmarkDelete = it },
+                onDeleteHighlight = { pendingHighlightDelete = it }
             )
-            // Export only makes sense for passages; a saved place has nothing to paste elsewhere.
-            if (tab == AnnotationTab.Highlights && highlightShelves.isNotEmpty()) {
-                IconButton(
-                    onClick = { shareHighlights(context, buildHighlightsMarkdown(highlightShelves)) },
-                    modifier = Modifier.testTag("export_highlights_button")
-                ) {
-                    Icon(
-                        Icons.Outlined.IosShare,
-                        contentDescription = "Export highlights as Markdown",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-        }
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
-        ) {
-            AnnotationTab.entries.forEach { entry ->
-                val selected = entry == tab
-                Surface(
-                    color = if (selected) {
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
-                    } else {
-                        MaterialTheme.colorScheme.surfaceContainer
-                    },
-                    shape = RoundedCornerShape(20.dp),
-                    modifier = Modifier
-                        .clickable { tab = entry }
-                        .testTag("annotation_tab_${entry.name.lowercase()}")
-                ) {
-                    Text(
-                        text = entry.label,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
-                        color = if (selected) {
-                            MaterialTheme.colorScheme.primary
-                        } else {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        },
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-                    )
-                }
-            }
-        }
-
-        Box(modifier = Modifier.fillMaxSize()) {
-            when (tab) {
-                AnnotationTab.Places -> if (shelves.isEmpty()) {
-                    EmptyState(
-                        title = "No saved places yet",
-                        message = "While listening, tap the bookmark icon to save where you are. Your marks land here, grouped by document.",
-                        icon = Icons.Outlined.Bookmarks
-                    )
-                } else {
-                    LazyColumn(
-                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        shelves.forEach { shelf ->
-                            item(key = "shelf_${shelf.bookId}") {
-                                ShelfHeader(shelf.bookId, shelf.bookTitle, shelf.bookmarks.size)
-                            }
-                            items(
-                                count = shelf.bookmarks.size,
-                                key = { shelf.bookmarks[it].id }
-                            ) { index ->
-                                val bookmark = shelf.bookmarks[index]
-                                BookmarkRow(
-                                    bookmark = bookmark,
-                                    spine = SpineColor.forKey(shelf.bookId),
-                                    onClick = { onNavigateToReader(bookmark) },
-                                    onDelete = { pendingDelete = bookmark }
-                                )
-                            }
-                            item(key = "gap_${shelf.bookId}") { Spacer(modifier = Modifier.height(14.dp)) }
-                        }
-                    }
-                }
-
-                AnnotationTab.Highlights -> if (highlightShelves.isEmpty()) {
-                    EmptyState(
-                        title = "No highlights yet",
-                        message = "Long-press any sentence while reading to mark it in one of five colours and attach a note.",
-                        icon = Icons.Outlined.FormatQuote
-                    )
-                } else {
-                    LazyColumn(
-                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        highlightShelves.forEach { shelf ->
-                            item(key = "hl_shelf_${shelf.bookId}") {
-                                ShelfHeader(shelf.bookId, shelf.bookTitle, shelf.highlights.size)
-                            }
-                            items(
-                                count = shelf.highlights.size,
-                                key = { shelf.highlights[it].id }
-                            ) { index ->
-                                val highlight = shelf.highlights[index]
-                                HighlightRow(
-                                    highlight = highlight,
-                                    onClick = {
-                                        onNavigateToReader(
-                                            Bookmark(
-                                                id = highlight.id,
-                                                bookId = highlight.bookId,
-                                                chapterIndex = highlight.chapterIndex,
-                                                sentenceIndex = highlight.sentenceIndex,
-                                                chapterTitle = highlight.chapterTitle,
-                                                textSnippet = highlight.text
-                                            )
-                                        )
-                                    },
-                                    onDelete = { pendingHighlightDelete = highlight }
-                                )
-                            }
-                            item(key = "hl_gap_${shelf.bookId}") { Spacer(modifier = Modifier.height(14.dp)) }
-                        }
-                    }
-                }
-            }
         }
     }
 
-    // Removing a mark cannot be undone, so it asks before it acts.
-    pendingDelete?.let { bookmark ->
+    pendingBookmarkDelete?.let { bookmark ->
         ConfirmationDialog(
-            title = "Remove bookmark?",
-            text = "This deletes the saved place in \"${bookmark.chapterTitle}\". Your reading progress stays where it is.",
-            confirmText = "Remove",
-            dismissText = "Cancel",
-            onConfirm = {
-                viewModel.deleteBookmark(bookmark.id)
-                pendingDelete = null
-            },
-            onDismiss = { pendingDelete = null }
+            title = stringResource(R.string.bookmark_remove_title),
+            text = stringResource(R.string.bookmark_remove_message, bookmark.chapterTitle),
+            confirmText = stringResource(R.string.saved_item_remove),
+            dismissText = stringResource(R.string.saved_item_cancel),
+            onConfirm = { onDeleteBookmark(bookmark.id); pendingBookmarkDelete = null },
+            onDismiss = { pendingBookmarkDelete = null }
         )
     }
     pendingHighlightDelete?.let { highlight ->
         ConfirmationDialog(
-            title = "Remove highlight?",
-            text = "This deletes the marked passage and its note. The text itself stays in the book.",
-            confirmText = "Remove",
-            dismissText = "Cancel",
-            onConfirm = {
-                viewModel.deleteHighlight(highlight.id)
-                pendingHighlightDelete = null
-            },
+            title = stringResource(R.string.highlight_remove_title),
+            text = stringResource(R.string.highlight_remove_message),
+            confirmText = stringResource(R.string.saved_item_remove),
+            dismissText = stringResource(R.string.saved_item_cancel),
+            onConfirm = { onDeleteHighlight(highlight.id); pendingHighlightDelete = null },
             onDismiss = { pendingHighlightDelete = null }
         )
     }
 }
 
-/** Hands the markdown to whatever the user already uses; Vox Reader writes no files of its own. */
-private fun shareHighlights(context: Context, markdown: String) {
+@Composable
+private fun BookmarksHeader(uiState: BookmarksUiState, context: Context) {
+    Column(modifier = Modifier.padding(start = 20.dp, end = 12.dp, top = 20.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.title_bookmarks),
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontFamily = BrandItalic,
+                    fontStyle = FontStyle.Italic,
+                    fontWeight = FontWeight.SemiBold
+                ),
+                modifier = Modifier.weight(1f)
+            )
+            if (uiState.selectedTab == SavedItemsTab.HIGHLIGHTS && uiState.allHighlightShelves.isNotEmpty()) {
+                val title = stringResource(R.string.highlights_export_title)
+                val chooser = stringResource(R.string.highlights_export_chooser)
+                IconButton(
+                    onClick = {
+                        shareHighlights(
+                            context,
+                            buildHighlightsMarkdown(uiState.allHighlightShelves),
+                            title,
+                            chooser
+                        )
+                    },
+                    modifier = Modifier.testTag("export_highlights_button")
+                ) {
+                    Icon(
+                        Icons.Outlined.IosShare,
+                        contentDescription = stringResource(R.string.highlights_export_all)
+                    )
+                }
+            }
+        }
+        if (uiState.selectedTab == SavedItemsTab.HIGHLIGHTS && uiState.allHighlightShelves.isNotEmpty()) {
+            Text(
+                text = stringResource(R.string.highlights_export_scope),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+internal fun SavedItemsTabs(selectedTab: SavedItemsTab, onTabSelect: (SavedItemsTab) -> Unit) {
+    ScrollableTabRow(
+        selectedTabIndex = selectedTab.ordinal,
+        edgePadding = 20.dp,
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+    ) {
+        SavedItemsTab.entries.forEach { tab ->
+            Tab(
+                selected = tab == selectedTab,
+                onClick = { onTabSelect(tab) },
+                text = {
+                    Text(
+                        stringResource(tab.labelRes),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                },
+                modifier = Modifier.testTag("saved_items_tab_${tab.name.lowercase()}")
+            )
+        }
+    }
+}
+
+@Composable
+private fun SavedItemsControls(
+    uiState: BookmarksUiState,
+    onQueryChange: (String) -> Unit,
+    onSortSelect: (SavedItemsSort) -> Unit
+) {
+    var sortExpanded by remember { mutableStateOf(false) }
+    Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)) {
+        OutlinedTextField(
+            value = uiState.query,
+            onValueChange = onQueryChange,
+            placeholder = { Text(stringResource(R.string.bookmarks_search_placeholder)) },
+            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+            trailingIcon = if (uiState.query.isNotEmpty()) {
+                {
+                    IconButton(onClick = { onQueryChange("") }) {
+                        Icon(Icons.Outlined.Close, stringResource(R.string.bookmarks_clear_search))
+                    }
+                }
+            } else null,
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Box {
+            val sortLabel = stringResource(uiState.selectedSort.labelRes)
+            val sortDescription = stringResource(R.string.bookmarks_sort_description, sortLabel)
+            TextButton(
+                onClick = { sortExpanded = true },
+                modifier = Modifier.semantics { contentDescription = sortDescription }
+            ) {
+                Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.bookmarks_sort_current, sortLabel), maxLines = 2)
+            }
+            DropdownMenu(sortExpanded, onDismissRequest = { sortExpanded = false }) {
+                SavedItemsSort.entries.forEach { sort ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(sort.labelRes)) },
+                        onClick = { sortExpanded = false; onSortSelect(sort) }
+                    )
+                }
+            }
+        }
+        val count = if (uiState.selectedTab == SavedItemsTab.BOOKMARKS) {
+            pluralStringResource(
+                R.plurals.bookmark_result_count,
+                uiState.visibleBookmarkCount,
+                uiState.visibleBookmarkCount
+            )
+        } else {
+            pluralStringResource(
+                R.plurals.highlight_result_count,
+                uiState.visibleHighlightCount,
+                uiState.visibleHighlightCount
+            )
+        }
+        Text(count, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun SavedItemsList(
+    uiState: BookmarksUiState,
+    onNavigateToReader: (Bookmark) -> Unit,
+    onDeleteBookmark: (Bookmark) -> Unit,
+    onDeleteHighlight: (Highlight) -> Unit
+) {
+    val showingBookmarks = uiState.selectedTab == SavedItemsTab.BOOKMARKS
+    val sourceEmpty = if (showingBookmarks) {
+        uiState.allBookmarkShelves.isEmpty()
+    } else {
+        uiState.allHighlightShelves.isEmpty()
+    }
+    val resultsEmpty = if (showingBookmarks) {
+        uiState.bookmarkShelves.isEmpty()
+    } else {
+        uiState.highlightShelves.isEmpty()
+    }
+    when {
+        sourceEmpty -> EmptyState(
+            title = stringResource(
+                if (showingBookmarks) R.string.bookmarks_empty_title else R.string.highlights_empty_title
+            ),
+            message = stringResource(
+                if (showingBookmarks) R.string.bookmarks_empty_message else R.string.highlights_empty_message
+            ),
+            icon = if (showingBookmarks) Icons.Outlined.Bookmarks else Icons.Outlined.FormatQuote,
+            modifier = Modifier.fillMaxSize()
+        )
+        resultsEmpty -> EmptyState(
+            title = stringResource(
+                if (showingBookmarks) {
+                    R.string.bookmarks_no_results_title
+                } else {
+                    R.string.highlights_no_results_title
+                }
+            ),
+            message = stringResource(R.string.saved_items_no_results_message),
+            icon = Icons.Outlined.Search,
+            modifier = Modifier.fillMaxSize()
+        )
+        showingBookmarks -> BookmarkList(uiState.bookmarkShelves, onNavigateToReader, onDeleteBookmark)
+        else -> HighlightList(uiState.highlightShelves, onNavigateToReader, onDeleteHighlight)
+    }
+}
+
+@Composable
+private fun BookmarkList(
+    shelves: List<BookmarkShelf>,
+    onNavigateToReader: (Bookmark) -> Unit,
+    onDelete: (Bookmark) -> Unit
+) {
+    LazyColumn(
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        shelves.forEach { shelf ->
+            item(key = "bookmark_shelf_${shelf.bookId}") {
+                ShelfHeader(shelf.bookId, shelf.bookTitle, shelf.bookmarks.size)
+            }
+            items(shelf.bookmarks.size, key = { shelf.bookmarks[it].id }) { index ->
+                val bookmark = shelf.bookmarks[index]
+                BookmarkRow(
+                    bookmark,
+                    SpineColor.forKey(shelf.bookId),
+                    onClick = { onNavigateToReader(bookmark) },
+                    onDelete = { onDelete(bookmark) }
+                )
+            }
+            item(key = "bookmark_gap_${shelf.bookId}") { Spacer(Modifier.height(14.dp)) }
+        }
+    }
+}
+
+@Composable
+private fun HighlightList(
+    shelves: List<HighlightShelf>,
+    onNavigateToReader: (Bookmark) -> Unit,
+    onDelete: (Highlight) -> Unit
+) {
+    LazyColumn(
+        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        modifier = Modifier.fillMaxSize()
+    ) {
+        shelves.forEach { shelf ->
+            item(key = "highlight_shelf_${shelf.bookId}") {
+                ShelfHeader(shelf.bookId, shelf.bookTitle, shelf.highlights.size)
+            }
+            items(shelf.highlights.size, key = { shelf.highlights[it].id }) { index ->
+                val highlight = shelf.highlights[index]
+                HighlightRow(
+                    highlight,
+                    onClick = {
+                        onNavigateToReader(
+                            Bookmark(
+                                id = highlight.id,
+                                bookId = highlight.bookId,
+                                chapterIndex = highlight.chapterIndex,
+                                sentenceIndex = highlight.sentenceIndex,
+                                chapterTitle = highlight.chapterTitle,
+                                textSnippet = highlight.text,
+                                timestamp = highlight.timestamp
+                            )
+                        )
+                    },
+                    onDelete = { onDelete(highlight) }
+                )
+            }
+            item(key = "highlight_gap_${shelf.bookId}") { Spacer(Modifier.height(14.dp)) }
+        }
+    }
+}
+
+private fun shareHighlights(context: Context, markdown: String, title: String, chooser: String) {
     val intent = Intent(Intent.ACTION_SEND).apply {
         type = "text/plain"
-        putExtra(Intent.EXTRA_TITLE, "Vox Reader highlights")
+        putExtra(Intent.EXTRA_TITLE, title)
         putExtra(Intent.EXTRA_TEXT, markdown)
     }
-    context.startActivity(Intent.createChooser(intent, "Export highlights"))
+    context.startActivity(Intent.createChooser(intent, chooser))
 }
 
 @Composable
 private fun ShelfHeader(bookId: String, bookTitle: String, count: Int) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.padding(bottom = 2.dp)
-    ) {
+    val displayTitle = bookTitle.takeIf { it.isNotBlank() }
+        ?: stringResource(R.string.saved_item_removed_document)
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 2.dp)) {
         Box(
-            modifier = Modifier
-                .width(4.dp)
-                .height(18.dp)
-                .clip(RoundedCornerShape(2.dp))
+            modifier = Modifier.width(4.dp).height(18.dp).clip(RoundedCornerShape(2.dp))
                 .background(SpineColor.forKey(bookId).fill)
         )
-        Spacer(modifier = Modifier.width(10.dp))
+        Spacer(Modifier.width(10.dp))
         Text(
-            text = bookTitle.toDisplayTitle(),
+            displayTitle.toDisplayTitle(),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
-        Spacer(modifier = Modifier.width(10.dp))
-        Text(
-            text = "$count",
-            style = MaterialTheme.typography.labelSmall,
-            color = TextTertiary
-        )
+        Spacer(Modifier.width(10.dp))
+        Text(count.toString(), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
-private fun HighlightRow(
-    highlight: Highlight,
-    onClick: () -> Unit,
-    onDelete: () -> Unit
-) {
+private fun HighlightRow(highlight: Highlight, onClick: () -> Unit, onDelete: () -> Unit) {
     val marker = HighlightColor.at(highlight.colorIndex)
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
         shape = RoundedCornerShape(12.dp),
-        modifier = Modifier
-            .widthIn(max = 720.dp)
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
+        modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick)
             .testTag("highlight_card_${highlight.id}")
     ) {
         Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-            // The colour is the point of the mark, so it survives into the list as the card's edge.
-            Box(
-                modifier = Modifier
-                    .width(4.dp)
-                    .fillMaxHeight()
-                    .background(marker.fill)
-            )
+            Box(Modifier.width(4.dp).fillMaxHeight().background(marker.fill))
             Row(
                 modifier = Modifier.padding(start = 12.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
                 verticalAlignment = Alignment.Top
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = highlight.chapterTitle,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = highlight.text,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        lineHeight = 21.sp,
-                        maxLines = 4,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    highlight.note?.takeIf { it.isNotBlank() }?.let { note ->
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row {
-                            Box(
-                                modifier = Modifier
-                                    .width(2.dp)
-                                    .height(16.dp)
-                                    .background(Color.White.copy(alpha = 0.18f))
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = note,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 3,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                }
-                IconButton(
-                    onClick = onDelete,
-                    modifier = Modifier.testTag("delete_highlight_${highlight.id}")
-                ) {
-                    Icon(
-                        Icons.Outlined.DeleteOutline,
-                        contentDescription = "Remove highlight",
-                        tint = TextTertiary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
+                SavedItemText(
+                    chapterTitle = highlight.chapterTitle,
+                    chapterIndex = highlight.chapterIndex,
+                    sentenceIndex = highlight.sentenceIndex,
+                    timestamp = highlight.timestamp,
+                    text = highlight.text,
+                    note = highlight.note,
+                    maxTextLines = 4,
+                    modifier = Modifier.weight(1f)
+                )
+                RemoveButton(R.string.highlight_remove, "delete_highlight_${highlight.id}", onDelete)
             }
         }
     }
 }
 
 @Composable
-private fun BookmarkRow(
-    bookmark: Bookmark,
-    spine: SpineColor,
-    onClick: () -> Unit,
-    onDelete: () -> Unit
-) {
+private fun BookmarkRow(bookmark: Bookmark, spine: SpineColor, onClick: () -> Unit, onDelete: () -> Unit) {
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainer,
         shape = RoundedCornerShape(12.dp),
-        modifier = Modifier
-            .widthIn(max = 720.dp)
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
+        modifier = Modifier.fillMaxWidth().clickable(role = Role.Button, onClick = onClick)
             .testTag("bookmark_card_${bookmark.id}")
     ) {
         Row(
             modifier = Modifier.padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
             verticalAlignment = Alignment.Top
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier.size(6.dp).clip(CircleShape).background(spine.fill)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = bookmark.chapterTitle,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f, fill = false)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = formatSavedAt(bookmark.timestamp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextTertiary
-                    )
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = bookmark.textSnippet,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = 21.sp,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
-                )
-                bookmark.note?.takeIf { it.isNotBlank() }?.let { note ->
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row {
-                        Box(
-                            modifier = Modifier
-                                .width(2.dp)
-                                .height(16.dp)
-                                .background(Color.White.copy(alpha = 0.18f))
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = note,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                }
-            }
-            // Destructive, so it stays quiet until reached for rather than shouting in error red.
-            IconButton(
-                onClick = onDelete,
-                modifier = Modifier.testTag("delete_bookmark_${bookmark.id}")
-            ) {
-                Icon(
-                    Icons.Outlined.DeleteOutline,
-                    contentDescription = "Remove bookmark",
-                    tint = TextTertiary,
-                    modifier = Modifier.size(18.dp)
-                )
-            }
+            Box(Modifier.padding(top = 6.dp).size(6.dp).clip(CircleShape).background(spine.fill))
+            Spacer(Modifier.width(8.dp))
+            SavedItemText(
+                chapterTitle = bookmark.chapterTitle,
+                chapterIndex = bookmark.chapterIndex,
+                sentenceIndex = bookmark.sentenceIndex,
+                timestamp = bookmark.timestamp,
+                text = bookmark.textSnippet,
+                note = bookmark.note,
+                maxTextLines = 3,
+                modifier = Modifier.weight(1f)
+            )
+            RemoveButton(R.string.bookmark_remove, "delete_bookmark_${bookmark.id}", onDelete)
         }
+    }
+}
+
+@Composable
+private fun SavedItemText(
+    chapterTitle: String,
+    chapterIndex: Int,
+    sentenceIndex: Int,
+    timestamp: Long,
+    text: String,
+    note: String?,
+    maxTextLines: Int,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier) {
+        Text(
+            chapterTitle,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            stringResource(R.string.saved_item_location, chapterIndex + 1, sentenceIndex + 1),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            stringResource(R.string.saved_item_saved_date, formatSavedAt(timestamp)),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text,
+            style = MaterialTheme.typography.bodyMedium,
+            lineHeight = 21.sp,
+            maxLines = maxTextLines,
+            overflow = TextOverflow.Ellipsis
+        )
+        note?.takeIf { it.isNotBlank() }?.let {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                it,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun RemoveButton(@StringRes descriptionRes: Int, testTag: String, onDelete: () -> Unit) {
+    IconButton(onClick = onDelete, modifier = Modifier.testTag(testTag)) {
+        Icon(
+            Icons.Outlined.DeleteOutline,
+            contentDescription = stringResource(descriptionRes),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(18.dp)
+        )
     }
 }
 

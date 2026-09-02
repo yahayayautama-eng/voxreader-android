@@ -38,11 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.voxleaf.reader.ui.theme.AzureGlow
-import com.voxleaf.reader.ui.theme.AzureGradient
-import com.voxleaf.reader.ui.theme.AzureLight
-import com.voxleaf.reader.ui.theme.AzurePrimary
 import com.voxleaf.reader.ui.theme.SpineColor
-import com.voxleaf.reader.ui.theme.TextTertiary
 
 /**
  * Empty states with aesthetic floating stickers (books, mic, audio waves, sparkles).
@@ -77,7 +73,7 @@ fun EmptyState(
             } else {
                 FloatingStickerBadge(
                     icon = icon,
-                    color = AzurePrimary,
+                    color = MaterialTheme.colorScheme.primary,
                     size = 72.dp,
                     iconSize = 36.dp
                 )
@@ -105,14 +101,14 @@ fun EmptyState(
                 Box(
                     modifier = Modifier
                         .clip(CircleShape)
-                        .background(AzureGradient)
+                        .background(MaterialTheme.colorScheme.primary)
                 ) {
                     Button(
                         onClick = onAction,
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color.Transparent,
-                            contentColor = Color.White
+                            contentColor = MaterialTheme.colorScheme.onPrimary
                         ),
                         modifier = Modifier.height(48.dp)
                     ) {
@@ -132,7 +128,7 @@ private fun StickerShelfIllustration() {
     ) {
         FloatingStickerBadge(
             icon = Icons.Outlined.AutoStories,
-            color = AzurePrimary,
+            color = MaterialTheme.colorScheme.primary,
             rotation = -8f,
             size = 68.dp,
             iconSize = 34.dp

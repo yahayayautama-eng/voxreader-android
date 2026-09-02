@@ -23,7 +23,6 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.voxleaf.reader.ui.theme.SignalOrange
 
 @Composable
 fun SplashScreen(
@@ -53,7 +52,7 @@ fun SplashScreen(
             Icon(
                 imageVector = Icons.Outlined.AutoStories,
                 contentDescription = null,
-                tint = SignalOrange,
+                tint = MaterialTheme.colorScheme.primary,
                 modifier = Modifier.size(72.dp)
             )
             Spacer(modifier = Modifier.height(16.dp))

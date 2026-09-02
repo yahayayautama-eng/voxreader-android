@@ -1,6 +1,8 @@
 package com.voxleaf.reader.core.navigation
 
 import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -8,9 +10,14 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.navigation.compose.ComposeNavigator
 import androidx.navigation.testing.TestNavHostController
 import androidx.test.core.app.ApplicationProvider
+import androidx.compose.ui.graphics.Color
 import com.voxleaf.reader.data.local.datastore.AppSettingsManager
 import com.voxleaf.reader.feature.library.LibraryScreenContent
 import com.voxleaf.reader.feature.library.LibraryUiState
+import com.voxleaf.reader.domain.repository.Book
+import com.voxleaf.reader.core.ui.getTitleForRoute
+import com.voxleaf.reader.ui.theme.MyApplicationTheme
+import com.voxleaf.reader.ui.theme.ObsidianDark
 import com.voxleaf.reader.tts.EdgeTtsEngine
 import com.voxleaf.reader.tts.SherpaTtsEngine
 import com.voxleaf.reader.tts.TtsManager
@@ -82,5 +89,83 @@ class NavigationTest {
         }
 
         composeTestRule.onNodeWithText("Build your shelf").assertExists()
+    }
+
+    @Test
+    fun statsRoute_usesListeningStatsTitle() {
+        composeTestRule.setContent {
+            Text(getTitleForRoute(Screen.Stats::class.qualifiedName))
+        }
+
+        composeTestRule.onNodeWithText("Listening stats").assertExists()
+    }
+
+    @Test
+    fun libraryBookCard_exposesProgressSemantics() {
+        composeTestRule.setContent {
+            LibraryScreenContent(
+                uiState = LibraryUiState.Success(
+                    allBooks = listOf(
+                        Book(
+                            id = "book-1",
+                            title = "A Test Book",
+                            author = "An Author",
+                            totalChapters = 4,
+                            currentChapterIndex = 2
+                        )
+                    )
+                ),
+                onAction = {}
+            )
+        }
+
+        composeTestRule.onNodeWithContentDescription(
+            "A Test Book, An Author, 50 percent complete"
+        ).assertExists()
+    }
+
+    @Test
+    fun libraryBookCard_omitsBlankAuthorFromDescription() {
+        composeTestRule.setContent {
+            LibraryScreenContent(
+                uiState = LibraryUiState.Success(
+                    allBooks = listOf(
+                        Book(
+                            id = "book-blank-author",
+                            title = "A Test Book",
+                            author = "",
+                            totalChapters = 4,
+                            currentChapterIndex = 2
+                        )
+                    )
+                ),
+                onAction = {}
+            )
+        }
+
+        composeTestRule.onNodeWithContentDescription(
+            "A Test Book, 50 percent complete"
+        ).assertExists()
+    }
+
+    @Test
+    fun themeUsesPassingInteractiveForegrounds() {
+        var darkPrimaryForeground = Color.Unspecified
+        var lightSecondaryForeground = Color.Unspecified
+
+        composeTestRule.setContent {
+            MyApplicationTheme {
+                darkPrimaryForeground = MaterialTheme.colorScheme.onPrimary
+                Text("dark")
+            }
+            MyApplicationTheme(darkTheme = false) {
+                lightSecondaryForeground = MaterialTheme.colorScheme.onSecondary
+                Text("light")
+            }
+        }
+        composeTestRule.runOnIdle {
+            assertEquals(ObsidianDark, darkPrimaryForeground)
+            assertEquals(Color.White, lightSecondaryForeground)
+        }
     }
 }

@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoStories
@@ -24,15 +27,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import com.voxleaf.reader.BuildConfig
+import com.voxleaf.reader.R
+import com.voxleaf.reader.ui.theme.ReaderSerif
 
 @Composable
 fun AboutScreen() {
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+      Column(modifier = Modifier.fillMaxWidth().widthIn(max = 720.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
                 Icons.Outlined.AutoStories,
@@ -42,8 +48,9 @@ fun AboutScreen() {
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column {
-                Text("Vox Reader", style = MaterialTheme.typography.headlineSmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Serif))
-                Text("Private document reading, with a local voice.", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Vox Reader", style = MaterialTheme.typography.headlineSmall.copy(fontFamily = ReaderSerif))
+                Text(stringResource(R.string.about_tagline), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(stringResource(R.string.about_version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
 
@@ -56,15 +63,20 @@ fun AboutScreen() {
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("Architectural Stack", style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                Text("• Language: Modern Kotlin 2.0 with Gradle Kotlin DSL")
-                Text("• UI: Jetpack Compose with Material Design 3")
-                Text("• Navigation: Type-safe Navigation Compose")
-                Text("• Architecture: MVVM with Unidirectional Data Flow")
-                Text("• Dependency Injection: Dagger Hilt")
-                Text("• Persistence: Room Database + Kotlin Coroutines & Flow")
-                Text("• Audio Speech Engine: kittenTTS via bundled Babylon.cpp (fully offline)")
+                AboutSection(R.string.about_privacy_title, R.string.about_privacy_body)
+                AboutSection(R.string.about_backup_title, R.string.about_backup_body)
+                AboutSection(R.string.about_fonts_title, R.string.about_fonts_body)
+                Text(stringResource(R.string.about_software_body), style = MaterialTheme.typography.bodyMedium)
             }
         }
+      }
+    }
+}
+
+@Composable
+private fun AboutSection(title: Int, body: Int) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(stringResource(title), style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+        Text(stringResource(body), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

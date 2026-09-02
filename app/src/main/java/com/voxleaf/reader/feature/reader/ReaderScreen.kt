@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,9 +25,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.Toc
 import androidx.compose.material.icons.outlined.Bedtime
 import androidx.compose.material.icons.outlined.BookmarkAdd
@@ -36,8 +37,6 @@ import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material.icons.outlined.Replay10
-import androidx.compose.material.icons.outlined.SkipNext
-import androidx.compose.material.icons.outlined.SkipPrevious
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.AlertDialog
@@ -52,6 +51,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import com.voxleaf.reader.ui.theme.SignalOrange
 import com.voxleaf.reader.ui.theme.Eyebrow
 import kotlin.math.roundToInt
 import androidx.compose.material3.Surface
@@ -66,18 +66,31 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.invisibleToUser
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -93,8 +106,31 @@ import com.voxleaf.reader.ui.theme.Canvas
 import com.voxleaf.reader.ui.theme.Graphite
 import com.voxleaf.reader.ui.theme.NightText
 import com.voxleaf.reader.ui.theme.PaleGreen
-import com.voxleaf.reader.ui.theme.SignalOrange
+import com.voxleaf.reader.ui.theme.EditorialDisplay
+import com.voxleaf.reader.ui.theme.ReaderSerif
 import com.voxleaf.reader.ui.theme.SpineColor
+import com.voxleaf.reader.ui.theme.UiSans
+import com.voxleaf.reader.ui.theme.UtilityMono
+
+fun fontFamilyForReader(fontFamily: ReaderFontFamily): FontFamily = when (fontFamily) {
+    ReaderFontFamily.SERIF -> ReaderSerif
+    ReaderFontFamily.SANS_SERIF -> UiSans
+    ReaderFontFamily.MONOSPACE -> UtilityMono
+}
+
+@OptIn(ExperimentalComposeUiApi::class)
+private fun Modifier.readerChromeVisibility(visible: Boolean): Modifier = if (visible) {
+    this
+} else {
+    this
+        .alpha(0f)
+        .pointerInput(Unit) {
+            awaitPointerEventScope {
+                while (true) awaitPointerEvent().changes.forEach { it.consume() }
+            }
+        }
+        .semantics { invisibleToUser() }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -113,6 +149,9 @@ fun ReaderScreen(
     var showContentsSheet by remember { mutableStateOf(false) }
     var showBookmarkDialog by remember { mutableStateOf(false) }
     var showSleepTimerDialog by remember { mutableStateOf(false) }
+    var showAppearanceSheet by remember { mutableStateOf(false) }
+    var chromeVisible by rememberSaveable { mutableStateOf(true) }
+    var contentsQuery by rememberSaveable { mutableStateOf("") }
     var bookmarkNote by remember { mutableStateOf("") }
     val (bgColor, textColor) = when (uiState.readerTheme) {
         ReaderTheme.LIGHT -> Canvas to Color(0xFF1A202C)
@@ -122,36 +161,35 @@ fun ReaderScreen(
         ReaderTheme.OLED -> Color(0xFF000000) to Color(0xFFE2E8F0)
         ReaderTheme.IVORY -> Color(0xFFFAF7EE) to Color(0xFF2C2B29)
     }
-    val currentFontFamily = when (uiState.readerFontFamily) {
-        ReaderFontFamily.SERIF -> FontFamily.Serif
-        ReaderFontFamily.SANS_SERIF -> FontFamily.SansSerif
-        ReaderFontFamily.MONOSPACE -> FontFamily.Monospace
-    }
+    val currentFontFamily = fontFamilyForReader(uiState.readerFontFamily)
+    val showChapterInTopBar = LocalDensity.current.fontScale < 1.8f
     Scaffold(
         topBar = {
-          Column {
+          Column(modifier = Modifier.readerChromeVisibility(chromeVisible)) {
             TopAppBar(
                 title = {
                     Column {
                         Text(
-                            text = uiState.book?.title ?: "Reader",
+                            text = uiState.book?.title ?: stringResource(com.voxleaf.reader.R.string.reader_title_fallback),
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = textColor,
-                            maxLines = 1
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
-                        uiState.currentChapter?.let { chapter ->
+                        uiState.currentChapter?.takeIf { showChapterInTopBar }?.let { chapter ->
                             Text(
                                 text = chapter.title,
                                 style = MaterialTheme.typography.labelMedium,
                                 color = textColor.copy(alpha = 0.7f),
-                                maxLines = 1
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
                     }
                 },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back", tint = textColor)
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = stringResource(com.voxleaf.reader.R.string.reader_back), tint = textColor)
                     }
                 },
                 actions = {
@@ -161,7 +199,31 @@ fun ReaderScreen(
                     ) {
                         Icon(
                             Icons.AutoMirrored.Outlined.Toc,
-                            contentDescription = "Table of contents",
+                            contentDescription = stringResource(com.voxleaf.reader.R.string.reader_contents_description),
+                            tint = textColor
+                        )
+                    }
+                    IconButton(
+                        onClick = { showAppearanceSheet = true },
+                        modifier = Modifier.testTag("reader_appearance_button")
+                    ) {
+                        Icon(
+                            Icons.Outlined.TextFields,
+                            contentDescription = stringResource(com.voxleaf.reader.R.string.reader_text_appearance),
+                            tint = textColor
+                        )
+                    }
+                    IconButton(
+                        onClick = {
+                            viewModel.handleAction(
+                                ReaderUiAction.OnStartMarking(uiState.currentSentenceIndex)
+                            )
+                        },
+                        modifier = Modifier.testTag("highlight_current_sentence_button")
+                    ) {
+                        Icon(
+                            Icons.Outlined.Tune,
+                            contentDescription = stringResource(com.voxleaf.reader.R.string.reader_highlight_current),
                             tint = textColor
                         )
                     }
@@ -171,7 +233,7 @@ fun ReaderScreen(
                     ) {
                         Icon(
                             Icons.Outlined.BookmarkAdd,
-                            contentDescription = "Add Bookmark",
+                            contentDescription = stringResource(com.voxleaf.reader.R.string.reader_add_bookmark),
                             tint = textColor
                         )
                     }
@@ -195,20 +257,13 @@ fun ReaderScreen(
                 textColor = textColor,
                 bgColor = bgColor,
                 onPlayPause = { viewModel.handleAction(ReaderUiAction.OnPlayPauseTts) },
-                onPrevChapter = {
-                    viewModel.handleAction(ReaderUiAction.OnChangeChapter(uiState.currentChapterIndex - 1))
-                },
-                onNextChapter = {
-                    viewModel.handleAction(ReaderUiAction.OnChangeChapter(uiState.currentChapterIndex + 1))
-                },
-                onPrevSentence = { viewModel.handleAction(ReaderUiAction.OnPreviousSentence) },
-                onNextSentence = { viewModel.handleAction(ReaderUiAction.OnNextSentence) },
                 onSkipBack = { viewModel.handleAction(ReaderUiAction.OnSkipBack) },
                 onSkipForward = { viewModel.handleAction(ReaderUiAction.OnSkipForward) },
                 onSeekToSentence = { viewModel.handleAction(ReaderUiAction.OnSeekToSentence(it)) },
                 onSleepTimer = { showSleepTimerDialog = true },
                 onVoiceSettings = { showVoiceSheet = true },
-                onBookmark = { showBookmarkDialog = true }
+                onBookmark = { showBookmarkDialog = true },
+                modifier = Modifier.readerChromeVisibility(chromeVisible)
             )
         }
     ) { paddingValues ->
@@ -258,7 +313,7 @@ fun ReaderScreen(
                             style = MaterialTheme.typography.headlineSmall.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = (uiState.fontSizeSp + 4).sp,
-                                fontFamily = FontFamily.Serif
+                                fontFamily = EditorialDisplay
                             ),
                             color = textColor,
                             modifier = Modifier.padding(bottom = 16.dp)
@@ -274,7 +329,8 @@ fun ReaderScreen(
                             highlights = uiState.chapterHighlights,
                             scrollState = scrollState,
                             onSeekToSentence = { viewModel.handleAction(ReaderUiAction.OnSeekToSentence(it)) },
-                            onMarkSentence = { viewModel.handleAction(ReaderUiAction.OnStartMarking(it)) }
+                            onMarkSentence = { viewModel.handleAction(ReaderUiAction.OnStartMarking(it)) },
+                            onToggleChrome = { chromeVisible = !chromeVisible }
                         )
                         Spacer(modifier = Modifier.height(40.dp))
                     }
@@ -290,20 +346,38 @@ fun ReaderScreen(
                             .padding(horizontal = 24.dp)
                     ) {
                         Text(
-                            text = "Contents",
+                            text = stringResource(com.voxleaf.reader.R.string.reader_contents),
                             style = MaterialTheme.typography.headlineSmall.copy(
-                                fontFamily = FontFamily.Serif,
+                                fontFamily = EditorialDisplay,
                                 fontWeight = FontWeight.Bold
                             )
                         )
                         Text(
-                            text = "${uiState.book?.chapters?.size ?: 0} chapters",
+                            text = pluralStringResource(
+                                com.voxleaf.reader.R.plurals.reader_chapter_count,
+                                uiState.book?.chapters?.size ?: 0,
+                                uiState.book?.chapters?.size ?: 0
+                            ),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
                         )
+                        OutlinedTextField(
+                            value = contentsQuery,
+                            onValueChange = { contentsQuery = it },
+                            label = { Text(stringResource(com.voxleaf.reader.R.string.reader_contents_search)) },
+                            singleLine = true,
+                            modifier = Modifier.fillMaxWidth().testTag("reader_contents_search")
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
                         LazyColumn(modifier = Modifier.fillMaxSize()) {
-                            itemsIndexed(uiState.book?.chapters.orEmpty()) { index, chapter ->
+                            val chapters = uiState.book?.chapters.orEmpty().withIndex().filter { indexed ->
+                                contentsQuery.isBlank() || indexed.value.title.contains(contentsQuery, ignoreCase = true)
+                            }
+                            items(chapters.size) { filteredIndex ->
+                                val indexed = chapters[filteredIndex]
+                                val index = indexed.index
+                                val chapter = indexed.value
                                 val isCurrentChapter = index == uiState.currentChapterIndex
                                 Surface(
                                     color = if (isCurrentChapter) {
@@ -320,12 +394,15 @@ fun ReaderScreen(
                                             showContentsSheet = false
                                         }
                                         .testTag("contents_chapter_$index")
+                                        .semantics {
+                                            if (isCurrentChapter) selected = true
+                                        }
                                 ) {
                                     Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 13.dp)) {
                                         Text(
                                             text = "${index + 1}".padStart(2, '0'),
                                             style = MaterialTheme.typography.labelMedium,
-                                            color = if (isCurrentChapter) SignalOrange else MaterialTheme.colorScheme.secondary
+                                            color = if (isCurrentChapter) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary
                                         )
                                         Text(
                                             text = chapter.title,
@@ -340,6 +417,15 @@ fun ReaderScreen(
                     }
                 }
             }
+            if (showAppearanceSheet) {
+                ModalBottomSheet(onDismissRequest = { showAppearanceSheet = false }) {
+                    ReaderAppearanceControls(
+                        uiState = uiState,
+                        onAction = viewModel::handleAction,
+                        onDone = { showAppearanceSheet = false }
+                    )
+                }
+            }
             if (showVoiceSheet) {
                 ModalBottomSheet(
                     onDismissRequest = { showVoiceSheet = false }
@@ -352,35 +438,35 @@ fun ReaderScreen(
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Text(
-                            text = "Voice & Speech",
+                            text = stringResource(com.voxleaf.reader.R.string.reader_voice_and_speech),
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                         )
 
                         // Engine selection
                         Text(
-                            text = "Speech Engine",
+                            text = stringResource(com.voxleaf.reader.R.string.reader_voice_source),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             listOf(
-                                EngineId.OFFLINE to "Offline (Neural)",
-                                EngineId.EDGE to "Edge TTS (Online)"
+                                EngineId.OFFLINE to com.voxleaf.reader.R.string.reader_voice_on_device,
+                                EngineId.EDGE to com.voxleaf.reader.R.string.reader_voice_online
                             ).forEach { (engine, label) ->
                                 val selected = uiState.ttsEngineId == engine
                                 OutlinedButton(
                                     onClick = { viewModel.handleAction(ReaderUiAction.OnSetTtsEngine(engine)) },
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.fillMaxWidth(),
                                     shape = RoundedCornerShape(8.dp),
-                                    border = if (selected) androidx.compose.foundation.BorderStroke(2.dp, SignalOrange) else null
+                                    border = if (selected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
                                 ) {
                                     Text(
-                                        text = label,
+                                        text = stringResource(label),
                                         fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (selected) SignalOrange else MaterialTheme.colorScheme.onSurface
+                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                                     )
                                 }
                             }
@@ -388,20 +474,20 @@ fun ReaderScreen(
 
                         // Speed / Rate controls
                         Text(
-                            text = "Reading Speed: ${"%.2f".format(uiState.ttsRate)}x",
+                            text = stringResource(com.voxleaf.reader.R.string.reader_reading_speed, uiState.ttsRate),
                             style = MaterialTheme.typography.titleSmall,
                             fontWeight = FontWeight.SemiBold
                         )
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState())
                         ) {
                             listOf(0.75f, 1.0f, 1.25f, 1.5f, 1.75f, 2.0f).forEach { rate ->
                                 val selected = kotlin.math.abs(uiState.ttsRate - rate) < 0.05f
                                 Surface(
                                     onClick = { viewModel.handleAction(ReaderUiAction.OnSetTtsSpeed(rate)) },
                                     modifier = Modifier
-                                        .weight(1f)
+                                        .width(64.dp)
                                         .height(38.dp),
                                     shape = RoundedCornerShape(10.dp),
                                     color = if (selected) com.voxleaf.reader.ui.theme.SkyPrimary.copy(alpha = 0.18f) else MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -428,7 +514,7 @@ fun ReaderScreen(
                         // Voices
                         if (uiState.availableVoices.isNotEmpty()) {
                             Text(
-                                text = "Voice",
+                                text = stringResource(com.voxleaf.reader.R.string.reader_voice),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -436,9 +522,9 @@ fun ReaderScreen(
                                 uiState.availableVoices.forEach { voice ->
                                     val selected = voice.id == uiState.ttsVoice
                                     Surface(
-                                        color = if (selected) SignalOrange.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceContainer,
+                                        color = if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceContainer,
                                         shape = RoundedCornerShape(10.dp),
-                                        border = if (selected) androidx.compose.foundation.BorderStroke(1.5.dp, SignalOrange) else null,
+                                        border = if (selected) androidx.compose.foundation.BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary) else null,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .clickable { viewModel.handleAction(ReaderUiAction.OnSetTtsVoice(voice.id)) }
@@ -462,8 +548,8 @@ fun ReaderScreen(
                                             if (selected) {
                                                 Icon(
                                                     Icons.Outlined.Check,
-                                                    contentDescription = "Selected",
-                                                    tint = SignalOrange,
+                                                    contentDescription = stringResource(com.voxleaf.reader.R.string.reader_selected),
+                                                    tint = MaterialTheme.colorScheme.primary,
                                                     modifier = Modifier.size(20.dp)
                                                 )
                                             }
@@ -477,7 +563,7 @@ fun ReaderScreen(
                             onClick = { showVoiceSheet = false },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Done")
+                            Text(stringResource(com.voxleaf.reader.R.string.done))
                         }
                     }
                 }
@@ -565,6 +651,116 @@ fun ReaderScreen(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+private fun ReaderAppearanceControls(
+    uiState: ReaderUiState,
+    onAction: (ReaderUiAction) -> Unit,
+    onDone: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(
+            stringResource(com.voxleaf.reader.R.string.reader_text_appearance),
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text(
+                text = stringResource(com.voxleaf.reader.R.string.reader_appearance_preview),
+                fontFamily = fontFamilyForReader(uiState.readerFontFamily),
+                fontSize = uiState.fontSizeSp.sp,
+                lineHeight = (uiState.fontSizeSp * uiState.lineSpacingMultiplier).sp,
+                modifier = Modifier.padding(16.dp)
+            )
+        }
+        Text(stringResource(com.voxleaf.reader.R.string.reader_theme), fontWeight = FontWeight.SemiBold)
+        listOf(
+            listOf(ReaderTheme.LIGHT, ReaderTheme.SEPIA),
+            listOf(ReaderTheme.NIGHT, ReaderTheme.OLED)
+        ).forEach { themes ->
+          Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            themes.forEach { theme ->
+                OutlinedButton(
+                    onClick = { onAction(ReaderUiAction.OnChangeTheme(theme)) },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        stringResource(
+                            when (theme) {
+                                ReaderTheme.LIGHT -> com.voxleaf.reader.R.string.reader_theme_light
+                                ReaderTheme.SEPIA -> com.voxleaf.reader.R.string.reader_theme_sepia
+                                ReaderTheme.NIGHT -> com.voxleaf.reader.R.string.reader_theme_night
+                                ReaderTheme.OLED -> com.voxleaf.reader.R.string.reader_theme_black
+                                ReaderTheme.DARK -> com.voxleaf.reader.R.string.reader_theme_dark
+                                ReaderTheme.IVORY -> com.voxleaf.reader.R.string.reader_theme_ivory
+                            }
+                        ),
+                        maxLines = 1
+                    )
+                }
+            }
+          }
+        }
+        Text(stringResource(com.voxleaf.reader.R.string.reader_font), fontWeight = FontWeight.SemiBold)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            ReaderFontFamily.entries.forEach { family ->
+                OutlinedButton(
+                    onClick = { onAction(ReaderUiAction.OnChangeFontFamily(family)) },
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        when (family) {
+                            ReaderFontFamily.SERIF -> stringResource(com.voxleaf.reader.R.string.reader_font_book)
+                            ReaderFontFamily.SANS_SERIF -> stringResource(com.voxleaf.reader.R.string.reader_font_clean)
+                            ReaderFontFamily.MONOSPACE -> stringResource(com.voxleaf.reader.R.string.reader_font_mono)
+                        },
+                        maxLines = 1
+                    )
+                }
+            }
+        }
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(stringResource(com.voxleaf.reader.R.string.reader_text_size, uiState.fontSizeSp))
+            val decreaseTextSize = stringResource(com.voxleaf.reader.R.string.reader_decrease_text_size)
+            val increaseTextSize = stringResource(com.voxleaf.reader.R.string.reader_increase_text_size)
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = { onAction(ReaderUiAction.OnChangeFontSize(-1)) },
+                    modifier = Modifier.weight(1f).semantics {
+                        contentDescription = decreaseTextSize
+                    }
+                ) { Text(stringResource(com.voxleaf.reader.R.string.reader_text_smaller)) }
+                OutlinedButton(
+                    onClick = { onAction(ReaderUiAction.OnChangeFontSize(1)) },
+                    modifier = Modifier.weight(1f).semantics {
+                        contentDescription = increaseTextSize
+                    }
+                ) { Text(stringResource(com.voxleaf.reader.R.string.reader_text_larger)) }
+            }
+        }
+        Text(stringResource(com.voxleaf.reader.R.string.reader_line_spacing))
+        Slider(
+            value = uiState.lineSpacingMultiplier,
+            onValueChange = { onAction(ReaderUiAction.OnChangeLineSpacing(it)) },
+            valueRange = 1.2f..2.2f,
+            steps = 4
+        )
+        Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(com.voxleaf.reader.R.string.done))
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
 private fun HighlightSheet(
     sentence: String,
     existing: Highlight?,
@@ -589,7 +785,7 @@ private fun HighlightSheet(
             )
             Text(
                 text = sentence,
-                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Serif),
+                style = MaterialTheme.typography.bodyMedium.copy(fontFamily = ReaderSerif),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 4,
                 overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
@@ -664,7 +860,8 @@ private fun FlowingChapterText(
     highlights: Map<Int, Highlight>,
     scrollState: ScrollState,
     onSeekToSentence: (Int) -> Unit,
-    onMarkSentence: (Int) -> Unit
+    onMarkSentence: (Int) -> Unit,
+    onToggleChrome: () -> Unit
 ) {
     // Sentence n occupies [starts[n], starts[n+1]) in the joined text; used for both tint and tap mapping.
     val starts = remember(sentences) {
@@ -732,7 +929,10 @@ private fun FlowingChapterText(
                 detectTapGestures(
                     // Tap moves the voice; long-press marks the passage — the two reading gestures
                     // people already expect, on the same run of text.
-                    onTap = { offset -> sentenceAt(offset)?.let(onSeekToSentence) },
+                    onTap = { offset ->
+                        sentenceAt(offset)?.let(onSeekToSentence)
+                        onToggleChrome()
+                    },
                     onLongPress = { offset -> sentenceAt(offset)?.let(onMarkSentence) }
                 )
             }
@@ -758,6 +958,7 @@ private fun formatClock(seconds: Float): String {
  * clock is therefore an estimate derived from word count at the current speech rate, and is labelled
  * as such. Seeking is exact regardless: each stop on the slider is a real sentence boundary.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ChapterScrubber(
     uiState: ReaderUiState,
@@ -784,6 +985,9 @@ private fun ChapterScrubber(
     val lastIndex = (total - 1).coerceAtLeast(0)
     val position = scrubPosition ?: uiState.currentSentenceIndex.coerceIn(0, lastIndex).toFloat()
     val elapsedSeconds = starts.getOrElse(position.roundToInt().coerceIn(0, lastIndex)) { 0f }
+    val remainingMinutes = ((duration - elapsedSeconds).coerceAtLeast(0f) / 60f).roundToInt()
+    val activeTrack = Color(0xFF2F7892)
+    val thumbColor = Color(0xFF1B5871)
 
     Column(modifier = Modifier.fillMaxWidth()) {
         Slider(
@@ -795,18 +999,42 @@ private fun ChapterScrubber(
             },
             valueRange = 0f..lastIndex.toFloat().coerceAtLeast(1f),
             colors = SliderDefaults.colors(
-                thumbColor = SignalOrange,
-                activeTrackColor = SignalOrange,
-                inactiveTrackColor = textColor.copy(alpha = 0.18f)
+                thumbColor = thumbColor,
+                activeTrackColor = activeTrack,
+                inactiveTrackColor = textColor.copy(alpha = 0.24f),
+                activeTickColor = Color.Transparent,
+                inactiveTickColor = Color.Transparent
             ),
-            modifier = Modifier.fillMaxWidth().testTag("reader_scrubber")
+            thumb = {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .background(thumbColor, CircleShape)
+                )
+            },
+            track = { sliderState ->
+                SliderDefaults.Track(
+                    sliderState,
+                    modifier = Modifier.height(2.dp),
+                    colors = SliderDefaults.colors(
+                        activeTrackColor = activeTrack,
+                        inactiveTrackColor = textColor.copy(alpha = 0.24f),
+                        activeTickColor = Color.Transparent,
+                        inactiveTickColor = Color.Transparent
+                    )
+                )
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(26.dp)
+                .testTag("reader_scrubber")
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(formatClock(elapsedSeconds), style = Eyebrow, color = textColor.copy(alpha = 0.55f))
-            Text("~${formatClock(duration)}", style = Eyebrow, color = textColor.copy(alpha = 0.55f))
+            Text("$remainingMinutes min left", style = Eyebrow, color = textColor.copy(alpha = 0.55f))
         }
     }
 }
@@ -817,22 +1045,19 @@ fun ReaderTtsBottomBar(
     textColor: Color,
     bgColor: Color,
     onPlayPause: () -> Unit,
-    onPrevChapter: () -> Unit,
-    onNextChapter: () -> Unit,
-    onPrevSentence: () -> Unit,
-    onNextSentence: () -> Unit,
     onSkipBack: () -> Unit,
     onSkipForward: () -> Unit,
     onSeekToSentence: (Int) -> Unit,
     onSleepTimer: () -> Unit,
     onVoiceSettings: () -> Unit,
-    onBookmark: () -> Unit
+    onBookmark: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     Surface(
         color = if (bgColor == Carbon) Graphite else bgColor,
         tonalElevation = 2.dp,
         shadowElevation = 2.dp,
-        modifier = Modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth()
     ) {
         Column(
             modifier = Modifier
@@ -848,15 +1073,38 @@ fun ReaderTtsBottomBar(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    val engineLabel = if (uiState.ttsEngineId == EngineId.EDGE) "Edge TTS" else "Offline voice"
+                    val voiceName = uiState.availableVoices
+                        .firstOrNull { it.id == uiState.ttsVoice }
+                        ?.displayName
+                        ?: stringResource(com.voxleaf.reader.R.string.reader_default_voice)
+                    val availability = stringResource(
+                        if (uiState.ttsEngineId == EngineId.EDGE) {
+                            com.voxleaf.reader.R.string.reader_voice_online
+                        } else {
+                            com.voxleaf.reader.R.string.reader_voice_on_device
+                        }
+                    )
+                    val voiceLabel = stringResource(
+                        com.voxleaf.reader.R.string.reader_voice_status,
+                        voiceName,
+                        availability
+                    )
                     Text(
                         text = when {
-                            uiState.isTtsPlaying -> "$engineLabel · sentence ${uiState.currentSentenceIndex + 1}"
-                            uiState.isTtsPaused -> "Speech paused"
-                            uiState.isAudiobookConverting -> uiState.ttsErrorMessage ?: "Creating audiobook before playback starts"
-                            uiState.isTtsPreparing -> "Preparing $engineLabel…"
+                            uiState.isTtsPlaying -> stringResource(
+                                com.voxleaf.reader.R.string.reader_voice_playing,
+                                voiceLabel,
+                                uiState.currentSentenceIndex + 1
+                            )
+                            uiState.isTtsPaused -> stringResource(com.voxleaf.reader.R.string.reader_speech_paused)
+                            uiState.isAudiobookConverting -> uiState.ttsErrorMessage
+                                ?: stringResource(com.voxleaf.reader.R.string.reader_preparing_playback)
+                            uiState.isTtsPreparing -> stringResource(
+                                com.voxleaf.reader.R.string.reader_preparing_voice,
+                                voiceLabel
+                            )
                             uiState.ttsErrorMessage != null -> uiState.ttsErrorMessage
-                            else -> "$engineLabel ready"
+                            else -> voiceLabel
                         },
                         style = MaterialTheme.typography.labelMedium,
                         color = textColor.copy(alpha = 0.8f)
@@ -875,77 +1123,58 @@ fun ReaderTtsBottomBar(
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
-                    onClick = onPrevChapter,
-                    enabled = uiState.currentChapterIndex > 0
-                ) {
-                    Icon(
-                        Icons.Outlined.SkipPrevious,
-                        contentDescription = "Previous Chapter",
-                        tint = textColor
-                    )
-                }
                 IconButton(onClick = onSkipBack) {
-                    Icon(Icons.Outlined.Replay10, contentDescription = "Back 10 seconds", tint = textColor)
-                }
-                IconButton(onClick = onPrevSentence) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Previous Sentence", tint = textColor)
+                    Icon(Icons.Outlined.Replay10, contentDescription = stringResource(com.voxleaf.reader.R.string.reader_back_ten), tint = textColor)
                 }
                 // Main Play/Pause — Radiant Azure gradient circle with neon aura
                 Box(contentAlignment = Alignment.Center) {
                     Box(
                         modifier = Modifier
                             .size(72.dp)
-                            .background(com.voxleaf.reader.ui.theme.AzurePrimary.copy(alpha = 0.2f), CircleShape)
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.2f), CircleShape)
                     )
                     Box(
                         contentAlignment = Alignment.Center,
                         modifier = Modifier
                             .size(56.dp)
                             .clip(CircleShape)
-                            .background(com.voxleaf.reader.ui.theme.AzureGradient)
+                            .background(MaterialTheme.colorScheme.primary)
                             .clickable(onClick = onPlayPause)
+                            .semantics { role = Role.Button }
                             .testTag("tts_play_pause_button")
                     ) {
                         Icon(
                             imageVector = if (uiState.isTtsPlaying || (uiState.isTtsPreparing && !uiState.isAudiobookConverting)) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                            contentDescription = if (uiState.isTtsPlaying || (uiState.isTtsPreparing && !uiState.isAudiobookConverting)) "Pause Speech" else "Play Speech",
-                            tint = Color.White,
+                            contentDescription = stringResource(
+                                if (uiState.isTtsPlaying || (uiState.isTtsPreparing && !uiState.isAudiobookConverting)) {
+                                    com.voxleaf.reader.R.string.reader_pause_speech
+                                } else {
+                                    com.voxleaf.reader.R.string.reader_play_speech
+                                }
+                            ),
+                            tint = MaterialTheme.colorScheme.onPrimary,
                             modifier = Modifier.size(32.dp)
                         )
                     }
                 }
-                IconButton(onClick = onNextSentence) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = "Next Sentence", tint = textColor)
-                }
                 IconButton(onClick = onSkipForward) {
-                    Icon(Icons.Outlined.Forward10, contentDescription = "Forward 10 seconds", tint = textColor)
-                }
-                IconButton(
-                    onClick = onNextChapter,
-                    enabled = uiState.book != null && uiState.currentChapterIndex < (uiState.book.chapters.size - 1)
-                ) {
-                    Icon(
-                        Icons.Outlined.SkipNext,
-                        contentDescription = "Next Chapter",
-                        tint = textColor
-                    )
+                    Icon(Icons.Outlined.Forward10, contentDescription = stringResource(com.voxleaf.reader.R.string.reader_forward_ten), tint = textColor)
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(4.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = onSleepTimer) {
-                    Icon(Icons.Outlined.Bedtime, contentDescription = "Sleep Timer", tint = textColor)
+                    Icon(Icons.Outlined.Bedtime, contentDescription = stringResource(com.voxleaf.reader.R.string.reader_sleep_timer), tint = textColor)
                 }
                 IconButton(onClick = onVoiceSettings) {
-                    Icon(Icons.Outlined.RecordVoiceOver, contentDescription = "Voice and Speed", tint = textColor)
+                    Icon(Icons.Outlined.RecordVoiceOver, contentDescription = stringResource(com.voxleaf.reader.R.string.reader_voice_speed), tint = textColor)
                 }
                 IconButton(onClick = onBookmark) {
-                    Icon(Icons.Outlined.BookmarkAdd, contentDescription = "Bookmark", tint = textColor)
+                    Icon(Icons.Outlined.BookmarkAdd, contentDescription = stringResource(com.voxleaf.reader.R.string.reader_bookmark), tint = textColor)
                 }
             }
         }

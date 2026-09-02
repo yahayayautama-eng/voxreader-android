@@ -24,7 +24,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.voxleaf.reader.ui.theme.Carbon
-import com.voxleaf.reader.ui.theme.SignalOrange
 
 @Composable
 fun ErrorState(
@@ -58,7 +57,7 @@ fun ErrorState(
         Button(
             onClick = onRetry,
             shape = CircleShape,
-            colors = ButtonDefaults.buttonColors(containerColor = SignalOrange, contentColor = Carbon),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
             modifier = Modifier.height(48.dp)
         ) {
             Text(text = "Retry", fontWeight = FontWeight.Bold)

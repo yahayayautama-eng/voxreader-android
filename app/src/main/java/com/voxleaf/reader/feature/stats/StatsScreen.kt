@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,6 +31,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -37,9 +40,7 @@ import androidx.lifecycle.viewModelScope
 import com.voxleaf.reader.core.ui.components.EmptyState
 import com.voxleaf.reader.core.ui.components.toDisplayTitle
 import com.voxleaf.reader.domain.repository.BookRepository
-import com.voxleaf.reader.ui.theme.SignalOrange
 import com.voxleaf.reader.ui.theme.SpineColor
-import com.voxleaf.reader.ui.theme.TextTertiary
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -96,13 +97,13 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
     LazyColumn(
         contentPadding = PaddingValues(20.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier.fillMaxSize().widthIn(max = 840.dp)
     ) {
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StatTile("Listened", formatDuration(state.summary.totalSeconds), Modifier.weight(1f))
-                StatTile("Streak", "${state.summary.currentStreak}d", Modifier.weight(1f))
-                StatTile("Best", "${state.summary.longestStreak}d", Modifier.weight(1f))
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                StatTile("Listened", formatDuration(state.summary.totalSeconds), Modifier.fillMaxWidth())
+                StatTile("Streak", "${state.summary.currentStreak}d", Modifier.fillMaxWidth())
+                StatTile("Best", "${state.summary.longestStreak}d", Modifier.fillMaxWidth())
             }
         }
         item { Heatmap(state.summary.cells) }
@@ -134,7 +135,7 @@ private fun StatTile(label: String, value: String, modifier: Modifier = Modifier
             Text(
                 text = label.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
-                color = TextTertiary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(modifier = Modifier.height(6.dp))
             Text(
@@ -176,6 +177,9 @@ private fun Heatmap(cells: List<DayCell>) {
                                 .size(13.dp)
                                 .clip(RoundedCornerShape(3.dp))
                                 .background(levelColor(cell.level))
+                                .semantics {
+                                    contentDescription = "${cell.date}: ${formatDuration(cell.seconds)} listened"
+                                }
                         )
                     }
                 }
@@ -183,7 +187,7 @@ private fun Heatmap(cells: List<DayCell>) {
         }
         Spacer(modifier = Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = "Less", style = MaterialTheme.typography.labelSmall, color = TextTertiary)
+            Text(text = "Less", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.width(6.dp))
             (0..4).forEach { level ->
                 Box(
@@ -195,7 +199,7 @@ private fun Heatmap(cells: List<DayCell>) {
                 Spacer(modifier = Modifier.width(3.dp))
             }
             Spacer(modifier = Modifier.width(3.dp))
-            Text(text = "More", style = MaterialTheme.typography.labelSmall, color = TextTertiary)
+            Text(text = "More", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -203,10 +207,10 @@ private fun Heatmap(cells: List<DayCell>) {
 @Composable
 private fun levelColor(level: Int) = when (level) {
     0 -> MaterialTheme.colorScheme.surfaceContainerHighest
-    1 -> SignalOrange.copy(alpha = 0.25f)
-    2 -> SignalOrange.copy(alpha = 0.45f)
-    3 -> SignalOrange.copy(alpha = 0.7f)
-    else -> SignalOrange
+    1 -> MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+    2 -> MaterialTheme.colorScheme.primary.copy(alpha = 0.45f)
+    3 -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+    else -> MaterialTheme.colorScheme.primary
 }
 
 @Composable

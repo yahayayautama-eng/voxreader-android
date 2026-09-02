@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.preferencesDataStore
 import com.voxleaf.reader.tts.SherpaTtsEngine
@@ -33,10 +34,19 @@ class AppSettingsManager @Inject constructor(
         val TTS_ENGINE_KEY = stringPreferencesKey("tts_engine")
         val AUTO_PLAY_KEY = booleanPreferencesKey("auto_play_on_open")
         val HIGHLIGHT_KEY = booleanPreferencesKey("highlight_spoken_sentences")
+        val HIDE_RECENTS_KEY = booleanPreferencesKey("hide_content_in_recents")
+        val VOICE_FAVORITES_KEY = stringSetPreferencesKey("favorite_voice_ids")
+        val VOICE_RECENTS_KEY = stringPreferencesKey("recent_voice_ids")
     }
 
     val themeFlow: Flow<String> = context.dataStore.data.map { it[THEME_KEY] ?: "SYSTEM" }
-    val readerThemeFlow: Flow<String> = context.dataStore.data.map { it[READER_THEME_KEY] ?: "NIGHT" }
+    val readerThemeFlow: Flow<String> = context.dataStore.data.map {
+        when (it[READER_THEME_KEY] ?: "NIGHT") {
+            "DARK" -> "NIGHT"
+            "IVORY" -> "LIGHT"
+            else -> it[READER_THEME_KEY] ?: "NIGHT"
+        }
+    }
     val readerFontFamilyFlow: Flow<String> = context.dataStore.data.map { it[READER_FONT_FAMILY_KEY] ?: "SERIF" }
     val readerFontSizeFlow: Flow<Int> = context.dataStore.data.map { it[READER_FONT_SIZE_KEY] ?: 18 }
     val readerLineSpacingFlow: Flow<Float> = context.dataStore.data.map { it[READER_LINE_SPACING_KEY] ?: 1.75f }
@@ -48,6 +58,11 @@ class AppSettingsManager @Inject constructor(
     val ttsEngineFlow: Flow<String> = context.dataStore.data.map { it[TTS_ENGINE_KEY] ?: "offline" }
     val autoPlayFlow: Flow<Boolean> = context.dataStore.data.map { it[AUTO_PLAY_KEY] ?: false }
     val highlightSentencesFlow: Flow<Boolean> = context.dataStore.data.map { it[HIGHLIGHT_KEY] ?: true }
+    val hideContentInRecentsFlow: Flow<Boolean> = context.dataStore.data.map { it[HIDE_RECENTS_KEY] ?: false }
+    val favoriteVoiceIdsFlow: Flow<Set<String>> = context.dataStore.data.map { it[VOICE_FAVORITES_KEY] ?: emptySet() }
+    val recentVoiceIdsFlow: Flow<List<String>> = context.dataStore.data.map { preferences ->
+        preferences[VOICE_RECENTS_KEY].orEmpty().split('\n').filter(String::isNotBlank).take(8)
+    }
 
     suspend fun setAutoPlay(enabled: Boolean) {
         context.dataStore.edit { it[AUTO_PLAY_KEY] = enabled }
@@ -55,6 +70,24 @@ class AppSettingsManager @Inject constructor(
 
     suspend fun setHighlightSentences(enabled: Boolean) {
         context.dataStore.edit { it[HIGHLIGHT_KEY] = enabled }
+    }
+
+    suspend fun setHideContentInRecents(enabled: Boolean) {
+        context.dataStore.edit { it[HIDE_RECENTS_KEY] = enabled }
+    }
+
+    suspend fun toggleFavoriteVoice(voiceId: String) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[VOICE_FAVORITES_KEY].orEmpty()
+            preferences[VOICE_FAVORITES_KEY] = if (voiceId in current) current - voiceId else current + voiceId
+        }
+    }
+
+    suspend fun markVoiceRecent(voiceId: String) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[VOICE_RECENTS_KEY].orEmpty().split('\n').filter(String::isNotBlank)
+            preferences[VOICE_RECENTS_KEY] = (listOf(voiceId) + current.filterNot { it == voiceId }).take(8).joinToString("\n")
+        }
     }
 
     suspend fun setTheme(theme: String) {

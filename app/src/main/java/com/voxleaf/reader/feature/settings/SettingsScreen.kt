@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -28,6 +30,11 @@ import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.RecordVoiceOver
 import androidx.compose.material.icons.outlined.TextFields
+import androidx.compose.material.icons.outlined.SaveAlt
+import androidx.compose.material.icons.outlined.Restore
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,12 +44,21 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -52,13 +68,20 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import com.voxleaf.reader.BuildConfig
+import com.voxleaf.reader.R
 import com.voxleaf.reader.data.local.datastore.AppSettingsManager
+import com.voxleaf.reader.data.repository.BackupResult
+import com.voxleaf.reader.data.repository.LibraryBackupManager
+import com.voxleaf.reader.data.repository.LibraryStorageSummary
 import com.voxleaf.reader.ui.theme.Carbon
 import com.voxleaf.reader.ui.theme.PaleGreen
-import com.voxleaf.reader.ui.theme.SignalOrange
-import com.voxleaf.reader.ui.theme.TextTertiary
-import com.voxleaf.reader.ui.theme.VoxLeafSerif
+import com.voxleaf.reader.ui.theme.BrandItalic
+import com.voxleaf.reader.ui.theme.ReaderSerif
+import com.voxleaf.reader.ui.theme.UiSans
+import com.voxleaf.reader.ui.theme.UtilityMono
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -68,7 +91,8 @@ import javax.inject.Inject
 
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
-    private val settings: AppSettingsManager
+    private val settings: AppSettingsManager,
+    private val backupManager: LibraryBackupManager
 ) : ViewModel() {
 
     val autoPlay: StateFlow<Boolean> = settings.autoPlayFlow
@@ -76,6 +100,9 @@ class SettingsViewModel @Inject constructor(
 
     val highlightSentences: StateFlow<Boolean> = settings.highlightSentencesFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
+    val appTheme: StateFlow<String> = settings.themeFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "SYSTEM")
 
     val readerTheme: StateFlow<String> = settings.readerThemeFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "NIGHT")
@@ -89,10 +116,22 @@ class SettingsViewModel @Inject constructor(
     val readerLineSpacing: StateFlow<Float> = settings.readerLineSpacingFlow
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 1.75f)
 
+    val hideContentInRecents: StateFlow<Boolean> = settings.hideContentInRecentsFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    private val _backupMessage = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    val backupMessage: StateFlow<String?> = _backupMessage
+    private val _storageSummary = kotlinx.coroutines.flow.MutableStateFlow(LibraryStorageSummary(0, 0))
+    val storageSummary: StateFlow<LibraryStorageSummary> = _storageSummary
+
+    init { refreshStorage() }
+
     fun setAutoPlay(enabled: Boolean) = viewModelScope.launch { settings.setAutoPlay(enabled) }
 
     fun setHighlightSentences(enabled: Boolean) =
         viewModelScope.launch { settings.setHighlightSentences(enabled) }
+
+    fun setAppTheme(theme: String) = viewModelScope.launch { settings.setTheme(theme) }
 
     fun setReaderTheme(theme: String) = viewModelScope.launch { settings.setReaderTheme(theme) }
 
@@ -101,6 +140,27 @@ class SettingsViewModel @Inject constructor(
     fun setReaderFontSize(size: Int) = viewModelScope.launch { settings.setReaderFontSize(size) }
 
     fun setReaderLineSpacing(spacing: Float) = viewModelScope.launch { settings.setReaderLineSpacing(spacing) }
+
+    fun setHideContentInRecents(enabled: Boolean) = viewModelScope.launch {
+        settings.setHideContentInRecents(enabled)
+    }
+
+    fun exportBackup(uri: android.net.Uri) = viewModelScope.launch {
+        _backupMessage.value = when (val result = backupManager.exportTo(uri)) {
+            is BackupResult.Success -> result.message
+            is BackupResult.Error -> result.message
+        }
+    }
+
+    fun restoreBackup(uri: android.net.Uri) = viewModelScope.launch {
+        _backupMessage.value = when (val result = backupManager.restoreFrom(uri)) {
+            is BackupResult.Success -> result.message
+            is BackupResult.Error -> result.message
+        }
+        refreshStorage()
+    }
+
+    private fun refreshStorage() = viewModelScope.launch { _storageSummary.value = backupManager.storageSummary() }
 }
 
 @Composable
@@ -112,10 +172,22 @@ fun SettingsScreen(
 ) {
     val autoPlay by viewModel.autoPlay.collectAsStateWithLifecycle()
     val highlightSentences by viewModel.highlightSentences.collectAsStateWithLifecycle()
+    val appTheme by viewModel.appTheme.collectAsStateWithLifecycle()
     val readerTheme by viewModel.readerTheme.collectAsStateWithLifecycle()
     val readerFontFamily by viewModel.readerFontFamily.collectAsStateWithLifecycle()
     val readerFontSize by viewModel.readerFontSize.collectAsStateWithLifecycle()
     val readerLineSpacing by viewModel.readerLineSpacing.collectAsStateWithLifecycle()
+    val hideContentInRecents by viewModel.hideContentInRecents.collectAsStateWithLifecycle()
+    val backupMessage by viewModel.backupMessage.collectAsStateWithLifecycle()
+    val storageSummary by viewModel.storageSummary.collectAsStateWithLifecycle()
+    val backupFilename = stringResource(R.string.settings_backup_filename)
+    var pendingRestore by remember { mutableStateOf<android.net.Uri?>(null) }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri -> uri?.let(viewModel::exportBackup) }
+    val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        pendingRestore = uri
+    }
 
     Box(modifier = Modifier.fillMaxSize()) {
         com.voxleaf.reader.core.ui.components.AmbientStickerDecorations(alpha = 0.20f)
@@ -128,17 +200,73 @@ fun SettingsScreen(
                 .padding(horizontal = 20.dp, vertical = 20.dp)
         ) {
             Text(
-                text = "Settings",
-                fontFamily = VoxLeafSerif,
-                fontStyle = FontStyle.Italic,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 28.sp,
+                text = stringResource(R.string.title_settings),
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontFamily = BrandItalic,
+                    fontStyle = FontStyle.Italic,
+                    fontWeight = FontWeight.SemiBold
+                ),
                 color = MaterialTheme.colorScheme.onBackground
             )
             Spacer(modifier = Modifier.height(20.dp))
 
             // The privacy promise is the product; Settings is where a sceptical user comes to check it.
             PrivacyCard()
+            Spacer(modifier = Modifier.height(26.dp))
+
+            SectionLabel("Appearance")
+            SettingsGroup {
+                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text(
+                        text = "App theme",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = "Light uses a warm off-white canvas. System follows your device setting.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        listOf("LIGHT" to "Light", "DARK" to "Dark", "SYSTEM" to "System").forEach { (value, label) ->
+                            val selected = appTheme.equals(value, ignoreCase = true)
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(44.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        if (selected) MaterialTheme.colorScheme.primaryContainer
+                                        else MaterialTheme.colorScheme.surfaceContainerHigh
+                                    )
+                                    .border(
+                                        width = if (selected) 2.dp else 1.dp,
+                                        color = if (selected) MaterialTheme.colorScheme.primary
+                                        else MaterialTheme.colorScheme.outline,
+                                        shape = RoundedCornerShape(10.dp)
+                                    )
+                                    .selectable(
+                                        selected = selected,
+                                        role = Role.RadioButton,
+                                        onClick = { viewModel.setAppTheme(value) }
+                                    ),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                                    else MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             Spacer(modifier = Modifier.height(26.dp))
 
             SectionLabel("Reader Appearance")
@@ -153,11 +281,9 @@ fun SettingsScreen(
                         "OLED" to (Color(0xFF000000) to Color(0xFFF1F5F9)),
                         "NIGHT" to (Color(0xFF121316) to Color(0xFFA0AEC0)),
                         "SEPIA" to (Color(0xFFF4ECD8) to Color(0xFF433422)),
-                        "IVORY" to (Color(0xFFFAF7EE) to Color(0xFF2C2B29)),
-                        "DARK" to (Color(0xFF1E1F22) to Color(0xFFE5E7EB)),
                         "LIGHT" to (Color(0xFFFFFFFF) to Color(0xFF111827))
                     )
-                    val chunked = themeList.chunked(3)
+                    val chunked = themeList.chunked(2)
                     chunked.forEach { row ->
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -174,10 +300,14 @@ fun SettingsScreen(
                                         .background(bg)
                                         .border(
                                             width = if (selected) 2.dp else 1.dp,
-                                            color = if (selected) SignalOrange else Color.White.copy(alpha = 0.15f),
+                                            color = if (selected) MaterialTheme.colorScheme.primary else Color.White.copy(alpha = 0.15f),
                                             shape = RoundedCornerShape(8.dp)
                                         )
-                                        .clickable { viewModel.setReaderTheme(name) },
+                                        .selectable(
+                                            selected = selected,
+                                            onClick = { viewModel.setReaderTheme(name) },
+                                            role = Role.RadioButton
+                                        ),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
@@ -200,25 +330,47 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         listOf(
-                            "SERIF" to ("Serif" to androidx.compose.ui.text.font.FontFamily.Serif),
-                            "SANS_SERIF" to ("Sans" to androidx.compose.ui.text.font.FontFamily.SansSerif),
-                            "MONOSPACE" to ("Mono" to androidx.compose.ui.text.font.FontFamily.Monospace)
+                            "SERIF" to (R.string.reader_font_book to ReaderSerif),
+                            "SANS_SERIF" to (R.string.reader_font_clean to UiSans),
+                            "MONOSPACE" to (R.string.reader_font_mono to UtilityMono)
                         ).forEach { (key, meta) ->
-                            val (label, fam) = meta
+                            val (labelRes, fam) = meta
                             val selected = readerFontFamily.equals(key, ignoreCase = true)
                             androidx.compose.material3.OutlinedButton(
                                 onClick = { viewModel.setReaderFontFamily(key) },
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .semantics(mergeDescendants = true) {
+                                        role = Role.RadioButton
+                                        this.selected = selected
+                                    },
                                 shape = RoundedCornerShape(8.dp),
-                                border = if (selected) androidx.compose.foundation.BorderStroke(2.dp, SignalOrange) else null
+                                border = if (selected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
                             ) {
                                 Text(
-                                    text = label,
+                                    text = stringResource(labelRes),
                                     fontFamily = fam,
                                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                                 )
                             }
                         }
+                    }
+                    Surface(
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        shape = RoundedCornerShape(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = stringResource(R.string.reader_appearance_preview),
+                            fontFamily = when (readerFontFamily) {
+                                "SANS_SERIF" -> UiSans
+                                "MONOSPACE" -> UtilityMono
+                                else -> ReaderSerif
+                            },
+                            fontSize = readerFontSize.sp,
+                            lineHeight = (readerFontSize * readerLineSpacing).sp,
+                            modifier = Modifier.padding(16.dp)
+                        )
                     }
 
                     Text(
@@ -240,7 +392,7 @@ fun SettingsScreen(
                                 onClick = { viewModel.setReaderLineSpacing(spacing) },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(8.dp),
-                                border = if (selected) androidx.compose.foundation.BorderStroke(2.dp, SignalOrange) else null
+                                border = if (selected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
                             ) {
                                 Text(
                                     text = label,
@@ -283,7 +435,7 @@ fun SettingsScreen(
                     title = "Voice and speed",
                     subtitle = "Offline neural voices, Edge TTS online voices, and reading speed",
                     icon = Icons.Outlined.RecordVoiceOver,
-                    iconColor = com.voxleaf.reader.ui.theme.AzurePrimary,
+                    iconColor = MaterialTheme.colorScheme.primary,
                     onClick = onNavigateToVoiceSelection,
                     testTag = "settings_voice_item"
                 )
@@ -298,6 +450,14 @@ fun SettingsScreen(
                     checked = autoPlay,
                     onCheckedChange = viewModel::setAutoPlay,
                     testTag = "settings_autoplay_switch"
+                )
+                GroupDivider()
+                SettingsSwitchItem(
+                    title = stringResource(R.string.settings_privacy_recents),
+                    subtitle = stringResource(R.string.settings_privacy_recents_summary),
+                    checked = hideContentInRecents,
+                    onCheckedChange = viewModel::setHideContentInRecents,
+                    testTag = "settings_hide_recents_switch"
                 )
                 GroupDivider()
                 SettingsSwitchItem(
@@ -319,20 +479,85 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(26.dp))
+            SectionLabel(stringResource(R.string.settings_data))
+            SettingsGroup {
+                SettingsClickableItem(
+                    title = stringResource(R.string.settings_export_backup),
+                    subtitle = stringResource(R.string.settings_export_backup_summary),
+                    icon = Icons.Outlined.SaveAlt,
+                    onClick = { exportLauncher.launch(backupFilename) },
+                    testTag = "settings_export_backup"
+                )
+                GroupDivider()
+                SettingsClickableItem(
+                    title = stringResource(R.string.settings_restore_backup),
+                    subtitle = stringResource(R.string.settings_restore_backup_summary),
+                    icon = Icons.Outlined.Restore,
+                    onClick = { restoreLauncher.launch(arrayOf("application/json", "text/plain")) },
+                    testTag = "settings_restore_backup"
+                )
+                GroupDivider()
+                Text(
+                    text = pluralStringResource(
+                        R.plurals.settings_storage_summary,
+                        storageSummary.bookCount,
+                        storageSummary.bookCount,
+                        formatStorageBytes(storageSummary.bytes)
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(16.dp)
+                )
+                backupMessage?.let { message ->
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(26.dp))
             SectionLabel("About")
             SettingsGroup {
                 SettingsClickableItem(
                     title = "About Vox Reader",
                     subtitle = "Version ${BuildConfig.VERSION_NAME} · open source licences",
                     icon = Icons.Outlined.Info,
-                    iconColor = com.voxleaf.reader.ui.theme.AzureLight,
+                    iconColor = MaterialTheme.colorScheme.primary,
                     onClick = onNavigateToAbout,
                     testTag = "settings_about_item"
                 )
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
+        pendingRestore?.let { uri ->
+            AlertDialog(
+                onDismissRequest = { pendingRestore = null },
+                title = { Text(stringResource(R.string.settings_restore_title)) },
+                text = { Text(stringResource(R.string.settings_restore_message)) },
+                confirmButton = {
+                    Button(onClick = {
+                        pendingRestore = null
+                        viewModel.restoreBackup(uri)
+                    }) { Text(stringResource(R.string.settings_restore_confirm)) }
+                },
+                dismissButton = {
+                    OutlinedButton(onClick = { pendingRestore = null }) {
+                        Text(stringResource(R.string.settings_backup_cancel))
+                    }
+                }
+            )
+        }
     }
+}
+
+private fun formatStorageBytes(bytes: Long): String = when {
+    bytes >= 1024L * 1024L * 1024L -> "%.1f GB".format(bytes / (1024f * 1024f * 1024f))
+    bytes >= 1024L * 1024L -> "%.1f MB".format(bytes / (1024f * 1024f))
+    bytes >= 1024L -> "%.0f KB".format(bytes / 1024f)
+    else -> "$bytes B"
 }
 
 @Composable
@@ -342,21 +567,21 @@ private fun PrivacyCard() {
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, com.voxleaf.reader.ui.theme.AzureLight.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
+            .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f), RoundedCornerShape(16.dp))
     ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(com.voxleaf.reader.ui.theme.AzureLight.copy(alpha = 0.15f))
-                    .border(1.dp, com.voxleaf.reader.ui.theme.AzureLight.copy(alpha = 0.3f), RoundedCornerShape(12.dp)),
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                    .border(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     Icons.Outlined.Lock,
                     contentDescription = null,
-                    tint = com.voxleaf.reader.ui.theme.AzureLight,
+                    tint = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -366,7 +591,7 @@ private fun PrivacyCard() {
                     text = "Offline by default",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
-                    color = com.voxleaf.reader.ui.theme.AzureLight
+                    color = MaterialTheme.colorScheme.primary
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
@@ -386,7 +611,7 @@ private fun SectionLabel(text: String) {
         text = text.uppercase(),
         style = MaterialTheme.typography.labelSmall,
         letterSpacing = 0.08.em,
-        color = TextTertiary,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(bottom = 10.dp)
     )
 }
@@ -416,7 +641,7 @@ private fun SettingsClickableItem(
     title: String,
     subtitle: String,
     icon: ImageVector,
-    iconColor: Color = com.voxleaf.reader.ui.theme.AzurePrimary,
+    iconColor: Color = MaterialTheme.colorScheme.primary,
     onClick: () -> Unit,
     testTag: String
 ) {
@@ -424,6 +649,7 @@ private fun SettingsClickableItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
+            .semantics(mergeDescendants = true) { role = Role.Button }
             .heightIn(min = 56.dp)
             .padding(horizontal = 16.dp, vertical = 14.dp)
             .testTag(testTag),
@@ -452,7 +678,7 @@ private fun SettingsClickableItem(
         Icon(
             Icons.AutoMirrored.Outlined.KeyboardArrowRight,
             contentDescription = null,
-            tint = TextTertiary
+            tint = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }
@@ -468,8 +694,9 @@ private fun SettingsSwitchItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            // The whole row toggles, so the target is the row rather than just the switch.
-            .clickable { onCheckedChange(!checked) }
+            // The whole row is one accessible switch target, not a gesture-only label area.
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
+            .semantics(mergeDescendants = true) {}
             .heightIn(min = 56.dp)
             .padding(horizontal = 16.dp, vertical = 14.dp)
             .testTag(testTag),
@@ -487,12 +714,12 @@ private fun SettingsSwitchItem(
         Spacer(modifier = Modifier.width(16.dp))
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Carbon,
-                checkedTrackColor = SignalOrange,
-                checkedBorderColor = SignalOrange,
-                uncheckedThumbColor = TextTertiary,
+                checkedTrackColor = MaterialTheme.colorScheme.primary,
+                checkedBorderColor = MaterialTheme.colorScheme.primary,
+                uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 uncheckedTrackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                 uncheckedBorderColor = Color.White.copy(alpha = 0.12f)
             )

@@ -4,6 +4,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Bookmarks
 import androidx.compose.material.icons.outlined.AutoFixHigh
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.Icons
 
 
@@ -24,9 +25,11 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
@@ -41,6 +44,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -67,16 +72,16 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.voxleaf.reader.core.ui.components.BookSpine
+import com.voxleaf.reader.core.ui.BookDetailsMaxContentWidth
 import com.voxleaf.reader.core.ui.components.ErrorState
 import com.voxleaf.reader.core.ui.components.LoadingState
 import com.voxleaf.reader.core.ui.components.toDisplayTitle
 import com.voxleaf.reader.ui.theme.Carbon
 import com.voxleaf.reader.ui.theme.PaleGreen
-import com.voxleaf.reader.ui.theme.SignalOrange
-import com.voxleaf.reader.ui.theme.TextTertiary
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
@@ -111,6 +116,8 @@ fun BookDetailsScreen(
                 }
                 LazyColumn(
                     modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .widthIn(max = BookDetailsMaxContentWidth)
                         .fillMaxSize()
                         .padding(16.dp)
                 ) {
@@ -142,6 +149,8 @@ fun BookDetailsScreen(
                                 style = MaterialTheme.typography.titleLarge,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.Center,
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
                                 modifier = Modifier.testTag("book_title_text")
                             )
                             Spacer(modifier = Modifier.height(4.dp))
@@ -149,25 +158,29 @@ fun BookDetailsScreen(
                                 text = book.author,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
                                 text = "${book.totalChapters} chapters · ${formatMinutes(minutesLeft)} left · ${(progress * 100).toInt()}% complete",
                                 style = MaterialTheme.typography.bodySmall,
-                                color = TextTertiary,
-                                textAlign = TextAlign.Center
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis
                             )
                         }
 
                         Spacer(modifier = Modifier.height(22.dp))
                         Button(
                             onClick = { onNavigateToReader(book.id, null) },
-                            colors = ButtonDefaults.buttonColors(containerColor = SignalOrange, contentColor = Carbon),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
                             shape = CircleShape,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp)
+                                .heightIn(min = 52.dp)
                                 .testTag("read_now_button")
                         ) {
                             Icon(Icons.Outlined.PlayArrow, contentDescription = null)
@@ -205,7 +218,7 @@ fun BookDetailsScreen(
                             DetailsOutlineButton(
                                 text = if (book.isFavorite) "In favorites" else "Favorite",
                                 icon = if (book.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                                tint = if (book.isFavorite) SignalOrange else null,
+                                tint = if (book.isFavorite) MaterialTheme.colorScheme.primary else null,
                                 onClick = { viewModel.handleAction(BookDetailsUiAction.OnToggleFavorite) },
                                 modifier = Modifier.weight(1f).testTag("details_favorite_button")
                             )
@@ -218,7 +231,11 @@ fun BookDetailsScreen(
                         }
                         Spacer(modifier = Modifier.height(10.dp))
                         DetailsOutlineButton(
-                            text = if (state.isRedetectingChapters) "Scanning…" else "Re-scan chapters",
+                            text = if (state.isRedetectingChapters) {
+                                stringResource(com.voxleaf.reader.R.string.structure_analyzing)
+                            } else {
+                                stringResource(com.voxleaf.reader.R.string.structure_review)
+                            },
                             icon = Icons.Outlined.AutoFixHigh,
                             enabled = !state.isRedetectingChapters,
                             onClick = { viewModel.handleAction(BookDetailsUiAction.OnRedetectChapters) },
@@ -275,6 +292,15 @@ fun BookDetailsScreen(
                         }
                     )
                 }
+                state.structureDrafts?.let { drafts ->
+                    StructureEditorDialog(
+                        drafts = drafts,
+                        diffSummary = state.structureDiffSummary.orEmpty(),
+                        isApplying = state.isApplyingStructure,
+                        onAction = viewModel::handleAction,
+                        onDismiss = { viewModel.handleAction(BookDetailsUiAction.OnCancelStructureReview) }
+                    )
+                }
                 if (showDeleteConfirmation) {
                     AlertDialog(
                         onDismissRequest = { showDeleteConfirmation = false },
@@ -296,6 +322,168 @@ fun BookDetailsScreen(
     }
 }
 
+@Composable
+private fun StructureEditorDialog(
+    drafts: List<com.voxleaf.reader.domain.usecase.StructureSectionDraft>,
+    diffSummary: String,
+    isApplying: Boolean,
+    onAction: (BookDetailsUiAction) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var openMenuIndex by remember { mutableStateOf<Int?>(null) }
+    AlertDialog(
+        onDismissRequest = { if (!isApplying) onDismiss() },
+        title = { Text(stringResource(com.voxleaf.reader.R.string.structure_title)) },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    stringResource(com.voxleaf.reader.R.string.structure_explanation),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (diffSummary.isNotBlank()) {
+                    Text(diffSummary, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                }
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    itemsIndexed(drafts, key = { _, item -> item.id }) { index, draft ->
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = if (draft.isIgnored) {
+                                    MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.55f)
+                                } else MaterialTheme.colorScheme.surfaceContainer
+                            ),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    OutlinedTextField(
+                                        value = draft.title,
+                                        onValueChange = { onAction(BookDetailsUiAction.OnRenameStructureSection(index, it)) },
+                                        label = { Text(stringResource(com.voxleaf.reader.R.string.structure_section_title, (index + 1).toString())) },
+                                        singleLine = true,
+                                        enabled = !isApplying && !draft.isIgnored,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    Box {
+                                        IconButton(
+                                            onClick = { openMenuIndex = index },
+                                            enabled = !isApplying
+                                        ) {
+                                            Icon(
+                                                Icons.Outlined.MoreVert,
+                                                contentDescription = stringResource(
+                                                    com.voxleaf.reader.R.string.structure_section_actions,
+                                                    index + 1,
+                                                    draft.title
+                                                )
+                                            )
+                                        }
+                                        DropdownMenu(
+                                            expanded = openMenuIndex == index,
+                                            onDismissRequest = { openMenuIndex = null }
+                                        ) {
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(com.voxleaf.reader.R.string.structure_move_earlier, (index + 1).toString())) },
+                                                enabled = index > 0,
+                                                onClick = {
+                                                    openMenuIndex = null
+                                                    onAction(BookDetailsUiAction.OnMoveStructureSection(index, index - 1))
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(com.voxleaf.reader.R.string.structure_move_later, (index + 1).toString())) },
+                                                enabled = index < drafts.lastIndex,
+                                                onClick = {
+                                                    openMenuIndex = null
+                                                    onAction(BookDetailsUiAction.OnMoveStructureSection(index, index + 1))
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = {
+                                                    Text(stringResource(
+                                                        if (draft.isIgnored) com.voxleaf.reader.R.string.structure_restore
+                                                        else com.voxleaf.reader.R.string.structure_ignore,
+                                                        index + 1
+                                                    ))
+                                                },
+                                                onClick = {
+                                                    openMenuIndex = null
+                                                    onAction(BookDetailsUiAction.OnToggleIgnoreStructureSection(index))
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(com.voxleaf.reader.R.string.structure_merge, (index + 1).toString())) },
+                                                enabled = index > 0,
+                                                onClick = {
+                                                    openMenuIndex = null
+                                                    onAction(BookDetailsUiAction.OnMergeStructureSection(index))
+                                                }
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(com.voxleaf.reader.R.string.structure_split, (index + 1).toString())) },
+                                                onClick = {
+                                                    openMenuIndex = null
+                                                    onAction(BookDetailsUiAction.OnSplitStructureSection(index))
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                                Text(
+                                    stringResource(
+                                        com.voxleaf.reader.R.string.structure_source_confidence,
+                                        draft.detectionSource.lowercase().replaceFirstChar { it.titlecase() },
+                                        (draft.detectionConfidence * 100).toInt()
+                                    ),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                if (draft.detectionReason.isNotBlank()) {
+                                    Text(
+                                        draft.detectionReason,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                                Text(
+                                    if (draft.isIgnored) stringResource(com.voxleaf.reader.R.string.structure_ignored) else draft.content,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    maxLines = 4,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onAction(BookDetailsUiAction.OnApplyStructure) },
+                enabled = !isApplying && drafts.any { !it.isIgnored }
+            ) {
+                Text(stringResource(if (isApplying) com.voxleaf.reader.R.string.structure_applying else com.voxleaf.reader.R.string.structure_apply))
+            }
+        },
+        dismissButton = {
+            OutlinedButton(onClick = onDismiss, enabled = !isApplying) {
+                Text(stringResource(com.voxleaf.reader.R.string.structure_cancel))
+            }
+        }
+    )
+}
+
 private enum class ChapterState { Played, Current, Upcoming }
 
 private fun formatBytes(bytes: Long): String = when {
@@ -310,7 +498,7 @@ private fun SectionLabel(text: String) {
         text = text.uppercase(),
         style = MaterialTheme.typography.labelSmall,
         letterSpacing = 0.08.em,
-        color = TextTertiary,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(bottom = 10.dp)
     )
 }
@@ -330,7 +518,7 @@ private fun DetailsOutlineButton(
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
         colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
-        modifier = modifier.height(48.dp)
+        modifier = modifier.heightIn(min = 48.dp)
     ) {
         Icon(icon, contentDescription = null, tint = tint ?: LocalContentColor.current, modifier = Modifier.size(18.dp))
         Spacer(modifier = Modifier.width(6.dp))
@@ -371,9 +559,9 @@ private fun ChapterRow(
         )
         Spacer(modifier = Modifier.width(12.dp))
         if (state == ChapterState.Current) {
-            Text("Playing", style = MaterialTheme.typography.labelSmall, color = SignalOrange)
+            Text("Playing", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         } else {
-            Text("$minutes min", style = MaterialTheme.typography.labelSmall, color = TextTertiary)
+            Text("$minutes min", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     HorizontalDivider(color = Color.White.copy(alpha = 0.06f))
@@ -386,7 +574,7 @@ private fun StatusDot(state: ChapterState) {
             modifier = Modifier.size(8.dp).clip(CircleShape).background(PaleGreen)
         )
         ChapterState.Current -> Box(
-            modifier = Modifier.size(8.dp).clip(CircleShape).border(2.dp, SignalOrange, CircleShape)
+            modifier = Modifier.size(8.dp).clip(CircleShape).border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
         )
         ChapterState.Upcoming -> Box(
             modifier = Modifier.size(8.dp).clip(CircleShape)

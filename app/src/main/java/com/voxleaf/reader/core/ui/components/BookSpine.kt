@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.voxleaf.reader.ui.theme.PaleGreen
 import com.voxleaf.reader.ui.theme.SpineColor
-import com.voxleaf.reader.ui.theme.VoxLeafSerif
+import com.voxleaf.reader.ui.theme.BrandItalic
 
 /**
  * A book rendered as a shelf spine: flat identity color, serif drop-cap, and a progress ribbon pinned
@@ -116,7 +116,7 @@ private fun SpineFace(
     ) {
         Text(
             text = title.trim().firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-            fontFamily = VoxLeafSerif,
+            fontFamily = BrandItalic,
             fontStyle = FontStyle.Italic,
             fontWeight = FontWeight.SemiBold,
             fontSize = initialSize,

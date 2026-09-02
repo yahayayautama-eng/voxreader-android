@@ -1,5 +1,6 @@
 package com.voxleaf.reader.feature.library
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -9,6 +10,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -34,15 +37,23 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.NoteAdd
+import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.GraphicEq
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -54,17 +65,33 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.ProgressBarRangeInfo
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.progressBarRangeInfo
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -73,6 +100,10 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.voxleaf.reader.R
+import com.voxleaf.reader.core.ui.LibraryHeaderMaxWidth
+import com.voxleaf.reader.core.ui.LibraryMaxContentWidth
+import com.voxleaf.reader.core.ui.libraryColumnCount
 import com.voxleaf.reader.core.ui.components.BookSpine
 import com.voxleaf.reader.core.ui.components.BookSpineThumb
 import com.voxleaf.reader.core.ui.components.EmptyState
@@ -82,9 +113,8 @@ import com.voxleaf.reader.core.ui.components.toDisplayTitle
 import com.voxleaf.reader.domain.repository.Book
 import com.voxleaf.reader.ui.theme.Eyebrow
 import com.voxleaf.reader.ui.theme.PaleGreen
-import com.voxleaf.reader.ui.theme.SignalOrange
-import com.voxleaf.reader.ui.theme.TextTertiary
-import com.voxleaf.reader.ui.theme.VoxLeafSerif
+import com.voxleaf.reader.ui.theme.BrandItalic
+import kotlin.math.roundToInt
 
 /** The FAB plus bottom nav eat this much; the last grid row must clear both. */
 private val ScrollBottomClearance = 130.dp
@@ -123,17 +153,44 @@ fun LibraryScreenContent(
     sharedScope: SharedTransitionScope? = null,
     animatedScope: AnimatedVisibilityScope? = null
 ) {
+    val successState = uiState as? LibraryUiState.Success
+    val isSelectionMode = successState?.isSelectionMode == true
+    BackHandler(enabled = isSelectionMode) {
+        onAction(LibraryUiAction.OnClearSelection)
+    }
+
     Scaffold(
+        modifier = Modifier
+            .testTag("library_root")
+            .onPreviewKeyEvent { event ->
+                if (
+                    isSelectionMode &&
+                    event.key == Key.Escape &&
+                    event.type == KeyEventType.KeyDown
+                ) {
+                    onAction(LibraryUiAction.OnClearSelection)
+                    true
+                } else {
+                    false
+                }
+            },
         containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            if (successState?.isSelectionMode == true) {
+                SelectionContextBar(successState, onAction)
+            }
+        },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = { onAction(LibraryUiAction.OnAddBookClick) },
-                containerColor = SignalOrange,
-                contentColor = MaterialTheme.colorScheme.background,
-                icon = { Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = null) },
-                text = { Text("Import", fontWeight = FontWeight.Bold) },
-                modifier = Modifier.testTag("add_book_fab")
-            )
+            if (!isSelectionMode) {
+                ExtendedFloatingActionButton(
+                    onClick = { onAction(LibraryUiAction.OnAddBookClick) },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    icon = { Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = null) },
+                    text = { Text("Import", fontWeight = FontWeight.Bold) },
+                    modifier = Modifier.testTag("add_book_fab")
+                )
+            }
         }
     ) { paddingValues ->
         Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
@@ -155,6 +212,139 @@ fun LibraryScreenContent(
             }
         }
     }
+
+    if (successState?.showDeleteConfirmation == true) {
+        DeleteSelectionConfirmation(successState, onAction)
+    }
+    if ((successState?.deleteFailureCount ?: 0) > 0) {
+        DeleteFailureDialog(successState!!, onAction)
+    }
+}
+
+@Composable
+private fun SelectionContextBar(
+    uiState: LibraryUiState.Success,
+    onAction: (LibraryUiAction) -> Unit
+) {
+    val displayedIds = uiState.allBooks.mapTo(mutableSetOf()) { it.id }
+    val allDisplayedSelected = displayedIds.isNotEmpty() &&
+        displayedIds.all(uiState.selectedBookIds::contains)
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        shadowElevation = 4.dp,
+        modifier = Modifier.fillMaxWidth().testTag("library_selection_bar")
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = LibraryHeaderMaxWidth)
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(
+                    onClick = { onAction(LibraryUiAction.OnClearSelection) },
+                    enabled = !uiState.isDeleting
+                ) {
+                    Icon(Icons.Outlined.Close, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(stringResource(R.string.library_close))
+                }
+                Text(
+                    text = pluralStringResource(
+                        R.plurals.library_selection_count,
+                        uiState.selectionCount,
+                        uiState.selectionCount
+                    ),
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(horizontal = 8.dp).testTag("library_selection_count")
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(
+                    onClick = { onAction(LibraryUiAction.OnSelectAll(displayedIds)) },
+                    enabled = displayedIds.isNotEmpty() && !uiState.isDeleting
+                ) {
+                    Text(
+                        stringResource(
+                            if (allDisplayedSelected) {
+                                R.string.library_deselect_all
+                            } else {
+                                R.string.library_select_all
+                            }
+                        )
+                    )
+                }
+                TextButton(
+                    onClick = { onAction(LibraryUiAction.OnRequestDelete) },
+                    enabled = uiState.selectionCount > 0 && !uiState.isDeleting,
+                    modifier = Modifier.testTag("library_delete_selected")
+                ) {
+                    Icon(Icons.Outlined.Delete, contentDescription = null)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(stringResource(R.string.library_delete))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DeleteSelectionConfirmation(
+    uiState: LibraryUiState.Success,
+    onAction: (LibraryUiAction) -> Unit
+) {
+    val count = uiState.selectionCount
+    AlertDialog(
+        onDismissRequest = { onAction(LibraryUiAction.OnCancelDelete) },
+        title = {
+            Text(pluralStringResource(R.plurals.library_delete_title, count, count))
+        },
+        text = {
+            Text(pluralStringResource(R.plurals.library_delete_message, count, count))
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onAction(LibraryUiAction.OnConfirmDelete) },
+                enabled = count > 0 && !uiState.isDeleting,
+                modifier = Modifier.testTag("library_confirm_delete")
+            ) {
+                Text(stringResource(R.string.library_delete))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = { onAction(LibraryUiAction.OnCancelDelete) }) {
+                Text(stringResource(R.string.library_cancel))
+            }
+        }
+    )
+}
+
+@Composable
+private fun DeleteFailureDialog(
+    uiState: LibraryUiState.Success,
+    onAction: (LibraryUiAction) -> Unit
+) {
+    val count = uiState.deleteFailureCount
+    AlertDialog(
+        onDismissRequest = { onAction(LibraryUiAction.OnDismissDeleteFailure) },
+        title = { Text(stringResource(R.string.library_delete_failure_title)) },
+        text = {
+            Text(pluralStringResource(R.plurals.library_delete_failure_message, count, count))
+        },
+        confirmButton = {
+            TextButton(onClick = { onAction(LibraryUiAction.OnDismissDeleteFailure) }) {
+                Text(stringResource(R.string.library_close))
+            }
+        }
+    )
 }
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -166,13 +356,9 @@ private fun LibraryShelf(
     animatedScope: AnimatedVisibilityScope? = null
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-        // Spines stay a readable size instead of stretching: more shelf across on wider windows.
-        val columns = when {
-            maxWidth < 600.dp -> 3
-            maxWidth < 840.dp -> 5
-            else -> 7
-        }
-        val horizontalPadding = if (maxWidth < 600.dp) 20.dp else 32.dp
+        val contentWidth = minOf(maxWidth, LibraryMaxContentWidth)
+        val columns = libraryColumnCount(contentWidth)
+        val horizontalPadding = if (contentWidth < 600.dp) 20.dp else 32.dp
 
         LazyVerticalGrid(
             columns = GridCells.Fixed(columns),
@@ -184,11 +370,24 @@ private fun LibraryShelf(
             ),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .widthIn(max = LibraryMaxContentWidth)
+                .fillMaxSize()
+                .testTag("library_grid_$columns")
         ) {
-            fullWidth(columns) { LibraryHeader(uiState.searchQuery, onAction) }
+            if (!uiState.isSelectionMode) {
+                fullWidth(columns) {
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        LibraryHeader(uiState.searchQuery, onAction)
+                    }
+                }
+            }
 
-            if (uiState.recentBooks.isNotEmpty()) {
+            if (!uiState.isSelectionMode && uiState.recentBooks.isNotEmpty()) {
                 fullWidth(columns) { SectionLabel("Now listening") }
                 items(
                     uiState.recentBooks,
@@ -203,7 +402,9 @@ private fun LibraryShelf(
                 Spacer(modifier = Modifier.height(4.dp))
                 SectionLabel("The library")
             }
-            fullWidth(columns) { CategoryChips(uiState, onAction) }
+            if (!uiState.isSelectionMode) {
+                fullWidth(columns) { LibraryControls(uiState, onAction) }
+            }
 
             if (uiState.allBooks.isEmpty()) {
                 fullWidth(columns) {
@@ -211,7 +412,7 @@ private fun LibraryShelf(
                         message = if (uiState.searchQuery.isNotBlank()) {
                             "Nothing matches \"${uiState.searchQuery}\". Try a different word, or clear the search."
                         } else {
-                            "No documents in ${uiState.selectedCategory}. Pick another filter, or import something new."
+                            stringResource(R.string.library_no_filter_results)
                         },
                         icon = Icons.Outlined.Search,
                         modifier = Modifier.height(220.dp)
@@ -221,7 +422,27 @@ private fun LibraryShelf(
                 items(uiState.allBooks, key = { it.id }) { book ->
                     SpineCell(
                         book = book,
-                        onClick = { onAction(LibraryUiAction.OnBookClick(book.id)) },
+                        isSelectionMode = uiState.isSelectionMode,
+                        isSelected = book.id in uiState.selectedBookIds,
+                        onClick = {
+                            onAction(
+                                if (uiState.isSelectionMode) {
+                                    LibraryUiAction.OnToggleBookSelection(book.id)
+                                } else {
+                                    LibraryUiAction.OnBookClick(book.id)
+                                }
+                            )
+                        },
+                        onLongClick = { onAction(LibraryUiAction.OnSelectBook(book.id)) },
+                        onSelect = {
+                            onAction(
+                                if (book.id in uiState.selectedBookIds) {
+                                    LibraryUiAction.OnToggleBookSelection(book.id)
+                                } else {
+                                    LibraryUiAction.OnSelectBook(book.id)
+                                }
+                            )
+                        },
                         onFavoriteToggle = { onAction(LibraryUiAction.OnToggleFavorite(book.id)) },
                         sharedScope = sharedScope,
                         animatedScope = animatedScope
@@ -242,7 +463,7 @@ private fun LibraryHeader(searchQuery: String, onAction: (LibraryUiAction) -> Un
     // Arranged like a masthead rather than a title stacked on a sentence: the wordmark carries the
     // page, a hairline closes it, and the strapline sits under the rule as small tracked caps so it
     // reads as a subtitle instead of competing with the first book on screen.
-    Column {
+    Column(modifier = Modifier.widthIn(max = LibraryHeaderMaxWidth).fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -251,12 +472,12 @@ private fun LibraryHeader(searchQuery: String, onAction: (LibraryUiAction) -> Un
             Column {
                 Text(
                     text = "Vox Reader",
-                    fontFamily = VoxLeafSerif,
-                    fontStyle = FontStyle.Italic,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 38.sp,
-                    lineHeight = 42.sp,
-                    letterSpacing = (-1.2).sp,
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontFamily = BrandItalic,
+                        fontStyle = FontStyle.Italic,
+                        fontWeight = FontWeight.SemiBold,
+                        letterSpacing = (-1.2).sp
+                    ),
                     color = MaterialTheme.colorScheme.onBackground
                 )
             }
@@ -278,26 +499,26 @@ private fun LibraryHeader(searchQuery: String, onAction: (LibraryUiAction) -> Un
             }
         }
         Spacer(modifier = Modifier.height(10.dp))
-        HorizontalDivider(color = SignalOrange.copy(alpha = 0.35f), thickness = 1.dp)
+        HorizontalDivider(color = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f), thickness = 1.dp)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             "YOUR LIBRARY · READ ALOUD",
             style = Eyebrow,
-            color = TextTertiary
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(modifier = Modifier.height(20.dp))
         OutlinedTextField(
             value = searchQuery,
             onValueChange = { onAction(LibraryUiAction.OnSearchQueryChange(it)) },
-            placeholder = { Text("Search your library", color = TextTertiary) },
-            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, tint = TextTertiary) },
+            placeholder = { Text(stringResource(R.string.library_search_placeholder), color = MaterialTheme.colorScheme.onSurfaceVariant) },
+            leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
             singleLine = true,
             shape = CircleShape,
             colors = OutlinedTextFieldDefaults.colors(
                 unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 focusedContainerColor = MaterialTheme.colorScheme.surfaceContainer,
                 unfocusedBorderColor = Color.White.copy(alpha = 0.08f),
-                focusedBorderColor = SignalOrange
+                focusedBorderColor = MaterialTheme.colorScheme.primary
             ),
             modifier = Modifier.fillMaxWidth().testTag("library_search_input")
         )
@@ -310,7 +531,7 @@ private fun SectionLabel(text: String) {
     Text(
         text = text.uppercase(),
         style = Eyebrow,
-        color = TextTertiary,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(bottom = 8.dp)
     )
 }
@@ -348,7 +569,7 @@ private fun NowListeningCard(book: Book, onClick: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.height(3.dp))
                     Text(
-                        "${book.author} · Ch ${book.currentChapterIndex + 1} of ${book.totalChapters}",
+                        book.readingMetadata(),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
@@ -357,7 +578,7 @@ private fun NowListeningCard(book: Book, onClick: () -> Unit) {
                     Spacer(modifier = Modifier.height(10.dp))
                     LinearProgressIndicator(
                         progress = { progress },
-                        color = com.voxleaf.reader.ui.theme.AzurePrimary,
+                        color = MaterialTheme.colorScheme.primary,
                         trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                         modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape)
                     )
@@ -367,7 +588,7 @@ private fun NowListeningCard(book: Book, onClick: () -> Unit) {
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(com.voxleaf.reader.ui.theme.AzureGradient)
+                        .background(MaterialTheme.colorScheme.primary)
                         .clickable(onClick = onClick)
                         .semantics { contentDescription = "Resume ${book.title}" },
                     contentAlignment = Alignment.Center
@@ -375,7 +596,7 @@ private fun NowListeningCard(book: Book, onClick: () -> Unit) {
                     Icon(
                         imageVector = Icons.Filled.PlayArrow,
                         contentDescription = null,
-                        tint = Color.White,
+                        tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -385,55 +606,129 @@ private fun NowListeningCard(book: Book, onClick: () -> Unit) {
 }
 
 @Composable
-private fun CategoryChips(uiState: LibraryUiState.Success, onAction: (LibraryUiAction) -> Unit) {
-    LazyRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier.padding(bottom = 6.dp)
-    ) {
-        items(uiState.categories) { category ->
-            val selected = category == uiState.selectedCategory
-            Box(
+private fun LibraryControls(uiState: LibraryUiState.Success, onAction: (LibraryUiAction) -> Unit) {
+    var sortMenuExpanded by remember { mutableStateOf(false) }
+    val selectedSortLabel = stringResource(uiState.selectedSort.labelRes)
+    val sortDescription = stringResource(R.string.library_sort_description, selectedSortLabel)
+    Column(modifier = Modifier.padding(bottom = 6.dp)) {
+        Box {
+            TextButton(
+                onClick = { sortMenuExpanded = true },
                 modifier = Modifier
-                    .height(48.dp)
-                    .clip(CircleShape)
-                    .clickable { onAction(LibraryUiAction.OnCategorySelect(category)) }
-                    .testTag("category_chip_$category"),
-                contentAlignment = Alignment.Center
+                    .testTag("library_sort_button")
+                    .semantics {
+                        contentDescription = sortDescription
+                    }
             ) {
-                Box(
-                    modifier = Modifier
-                        .height(34.dp)
-                        .clip(CircleShape)
-                        .then(
-                            if (selected) Modifier.background(com.voxleaf.reader.ui.theme.AzureGradient)
-                            else Modifier.background(Color.Transparent).border(1.dp, Color(0xFF334155), CircleShape)
-                        )
-                        .padding(horizontal = 16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = category,
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                        color = if (selected) Color.White else MaterialTheme.colorScheme.onSurfaceVariant
+                Icon(Icons.AutoMirrored.Outlined.Sort, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(stringResource(R.string.library_sort))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(selectedSortLabel, fontWeight = FontWeight.Bold)
+            }
+            DropdownMenu(
+                expanded = sortMenuExpanded,
+                onDismissRequest = { sortMenuExpanded = false }
+            ) {
+                LibrarySort.entries.forEach { sort ->
+                    DropdownMenuItem(
+                        text = { Text(stringResource(sort.labelRes)) },
+                        onClick = {
+                            sortMenuExpanded = false
+                            onAction(LibraryUiAction.OnSortSelect(sort))
+                        }
                     )
                 }
+            }
+        }
+
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(uiState.filters, key = { it.name }) { filter ->
+                LibraryFilterChip(
+                    label = stringResource(filter.labelRes),
+                    selected = filter == uiState.selectedFilter && uiState.selectedMetadataCategory == null,
+                    testTag = "library_filter_${filter.name.lowercase()}",
+                    onClick = { onAction(LibraryUiAction.OnFilterSelect(filter)) }
+                )
+            }
+            items(uiState.metadataCategories, key = { "genre_$it" }) { category ->
+                LibraryFilterChip(
+                    label = category,
+                    selected = category == uiState.selectedMetadataCategory,
+                    testTag = "library_filter_genre_${category.lowercase()}",
+                    onClick = { onAction(LibraryUiAction.OnMetadataCategorySelect(category)) }
+                )
             }
         }
     }
 }
 
-@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun LibraryFilterChip(
+    label: String,
+    selected: Boolean,
+    testTag: String,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .height(48.dp)
+            .clip(CircleShape)
+            .selectable(selected = selected, onClick = onClick, role = Role.Tab)
+            .testTag(testTag),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier
+                .height(34.dp)
+                .clip(CircleShape)
+                .then(
+                    if (selected) Modifier.background(MaterialTheme.colorScheme.primary)
+                    else Modifier.background(Color.Transparent)
+                        .border(1.dp, Color(0xFF334155), CircleShape)
+                )
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalFoundationApi::class)
 @Composable
 private fun SpineCell(
     book: Book,
+    isSelectionMode: Boolean,
+    isSelected: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
+    onSelect: () -> Unit,
     onFavoriteToggle: () -> Unit,
     sharedScope: SharedTransitionScope? = null,
     animatedScope: AnimatedVisibilityScope? = null
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val pressed by interactionSource.collectIsPressedAsState()
+    var menuExpanded by remember { mutableStateOf(false) }
+    val progress = book.libraryProgressFraction()
+    val progressPercent = (progress * 100).roundToInt()
+    val stateLabel = stringResource(
+        if (isSelected) R.string.library_selected else R.string.library_not_selected
+    )
+    val moreOptionsLabel = stringResource(
+        R.string.library_more_options,
+        book.title.toDisplayTitle()
+    )
     // A spine is a physical object on a shelf; pressing it should feel like taking hold of it.
     val scale by animateFloatAsState(
         targetValue = if (pressed) 0.96f else 1f,
@@ -441,39 +736,157 @@ private fun SpineCell(
         label = "spinePress"
     )
 
-    Box(modifier = Modifier.testTag("book_card_${book.id}")) {
-        BookSpine(
-            title = book.title,
-            bookId = book.id,
-            coverPath = book.coverImagePath,
-            progress = book.progressFraction(),
-            sharedScope = sharedScope,
-            animatedScope = animatedScope,
+    Box(modifier = Modifier.fillMaxWidth()) {
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .aspectRatio(2f / 3f)
                 .scale(scale)
-                .clickable(
+                .combinedClickable(
                     interactionSource = interactionSource,
                     indication = null,
-                    onClick = onClick
+                    onClick = onClick,
+                    onLongClick = onLongClick
                 )
-        )
+                .testTag("book_card_${book.id}")
+                .semantics(mergeDescendants = true) {
+                    contentDescription = book.accessibilityDescription()
+                    role = Role.Button
+                    if (isSelectionMode) {
+                        selected = isSelected
+                        stateDescription = stateLabel
+                    }
+                    progressBarRangeInfo = ProgressBarRangeInfo(progress, 0f..1f)
+                }
+        ) {
+            BookSpine(
+                title = book.title,
+                bookId = book.id,
+                coverPath = book.coverImagePath,
+                progress = progress,
+                sharedScope = sharedScope,
+                animatedScope = animatedScope,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(2f / 3f)
+                    .then(
+                        if (isSelected) {
+                            Modifier.border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(8.dp))
+                        } else {
+                            Modifier
+                        }
+                    )
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = book.title.toDisplayTitle(),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (book.author.isNotBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = book.author,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LinearProgressIndicator(
+                    progress = { progress },
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(4.dp)
+                        .clip(CircleShape)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = stringResource(R.string.library_progress_percent, progressPercent),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1
+                )
+            }
+        }
         IconButton(
-            onClick = onFavoriteToggle,
+            onClick = { menuExpanded = true },
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .testTag("favorite_button_${book.id}")
+                .background(Color.Black.copy(alpha = 0.55f), CircleShape)
+                .testTag("book_overflow_${book.id}")
         ) {
             Icon(
-                imageVector = if (book.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                contentDescription = if (book.isFavorite) "Remove from favorites" else "Add to favorites",
-                tint = if (book.isFavorite) SignalOrange else Color.White.copy(alpha = 0.75f),
-                modifier = Modifier.size(18.dp)
+                imageVector = Icons.Outlined.MoreVert,
+                contentDescription = moreOptionsLabel,
+                tint = Color.White.copy(alpha = 0.9f)
+            )
+        }
+        DropdownMenu(
+            expanded = menuExpanded,
+            onDismissRequest = { menuExpanded = false }
+        ) {
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        stringResource(
+                            if (isSelected) R.string.library_deselect else R.string.library_select
+                        )
+                    )
+                },
+                onClick = {
+                    menuExpanded = false
+                    onSelect()
+                }
+            )
+            DropdownMenuItem(
+                text = {
+                    Text(
+                        stringResource(
+                            if (book.isFavorite) {
+                                R.string.library_remove_favorite
+                            } else {
+                                R.string.library_add_favorite
+                            }
+                        )
+                    )
+                },
+                leadingIcon = {
+                    Icon(
+                        imageVector = if (book.isFavorite) {
+                            Icons.Default.Favorite
+                        } else {
+                            Icons.Default.FavoriteBorder
+                        },
+                        contentDescription = null
+                    )
+                },
+                onClick = {
+                    menuExpanded = false
+                    onFavoriteToggle()
+                }
             )
         }
     }
 }
 
 private fun Book.progressFraction(): Float =
-    if (totalChapters > 0) (currentChapterIndex.toFloat() / totalChapters).coerceIn(0f, 1f) else 0f
+    libraryProgressFraction()
+
+private fun Book.readingMetadata(): String =
+    listOfNotNull(
+        author.takeIf { it.isNotBlank() },
+        "Ch ${currentChapterIndex + 1} of $totalChapters"
+    ).joinToString(" · ")
+
+private fun Book.accessibilityDescription(): String =
+    listOfNotNull(
+        title.toDisplayTitle(),
+        author.takeIf { it.isNotBlank() },
+        "${(progressFraction() * 100).roundToInt()} percent complete"
+    ).joinToString(", ")

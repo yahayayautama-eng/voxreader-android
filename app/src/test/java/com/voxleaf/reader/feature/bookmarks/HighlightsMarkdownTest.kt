@@ -61,4 +61,26 @@ class HighlightsMarkdownTest {
     fun `no highlights still produces a valid document`() {
         assertEquals("# Vox Reader highlights\n", buildHighlightsMarkdown(emptyList()))
     }
+
+    @Test
+    fun `export sorts books and highlights into deterministic reading order`() {
+        val late = highlight("Chapter Two", "Late passage", sentenceIndex = 4).copy(
+            id = "late",
+            chapterIndex = 1
+        )
+        val early = highlight("Chapter One", "Early passage", sentenceIndex = 1).copy(
+            id = "early",
+            chapterIndex = 0
+        )
+        val markdown = buildHighlightsMarkdown(
+            listOf(
+                HighlightShelf("book-b", "Zulu Book", listOf(late, early)),
+                HighlightShelf("book-a", "Alpha Book", listOf(early.copy(id = "alpha")))
+            )
+        )
+
+        assertTrue(markdown.indexOf("## Alpha Book") < markdown.indexOf("## Zulu Book"))
+        assertTrue(markdown.indexOf("> Early passage", markdown.indexOf("## Zulu Book")) <
+            markdown.indexOf("> Late passage"))
+    }
 }
