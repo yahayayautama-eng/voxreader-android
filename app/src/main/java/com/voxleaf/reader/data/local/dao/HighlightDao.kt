@@ -24,4 +24,13 @@ interface HighlightDao {
     /** Re-marking an already-marked sentence toggles it off, so the same gesture undoes itself. */
     @Query("DELETE FROM highlights WHERE bookId = :bookId AND chapterIndex = :chapterIndex AND sentenceIndex = :sentenceIndex")
     suspend fun deleteHighlightAt(bookId: String, chapterIndex: Int, sentenceIndex: Int)
+
+    @Query("SELECT * FROM highlights WHERE bookId = :bookId")
+    suspend fun getHighlightsForBookNow(bookId: String): List<HighlightEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertHighlights(highlights: List<HighlightEntity>)
+
+    @Query("SELECT * FROM highlights")
+    suspend fun getAllHighlightsNow(): List<HighlightEntity>
 }

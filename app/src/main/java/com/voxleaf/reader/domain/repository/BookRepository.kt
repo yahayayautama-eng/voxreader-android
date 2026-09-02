@@ -6,7 +6,14 @@ data class Chapter(
     val chapterNumber: Int,
     val title: String,
     val content: String,
-    val estimatedMinutes: Int = 5
+    val estimatedMinutes: Int = 5,
+    val id: String = "",
+    val detectionSource: String = "DETECTED",
+    val detectionConfidence: Float = 0.5f,
+    val detectionReason: String = "",
+    val startAnchor: String = "",
+    val endAnchor: String = "",
+    val isManuallyEdited: Boolean = false
 )
 
 data class Bookmark(
@@ -49,7 +56,8 @@ data class Book(
     val currentPosition: Int = 0,
     val audioPositionMs: Long = 0L,
     val isFavorite: Boolean = false,
-    val chapters: List<Chapter> = emptyList()
+    val chapters: List<Chapter> = emptyList(),
+    val lastProgressUpdatedAt: Long = 0L
 )
 
 interface BookRepository {

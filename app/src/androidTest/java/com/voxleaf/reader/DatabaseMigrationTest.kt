@@ -72,4 +72,26 @@ class DatabaseMigrationTest {
         }
         migrated.close()
     }
+
+    @Test
+    fun migrate8To9_addsStructureMetadataWithoutChangingSections() {
+        helper.createDatabase("migration-v8", 8).apply {
+            execSQL("INSERT INTO books (id, title, author, description, genre, coverColorHex, totalChapters, isFavorite, sourceFilePath, coverImagePath) VALUES ('book', 'Title', 'Author', '', 'Fiction', '#000000', 1, 0, NULL, NULL)")
+            execSQL("INSERT INTO sections (id, bookId, chapterNumber, title, estimatedMinutes) VALUES ('section', 'book', 1, 'Chapter One', 3)")
+            close()
+        }
+
+        val migrated = helper.runMigrationsAndValidate("migration-v8", 9, true, DatabaseModule.MIGRATION_8_9)
+        migrated.query("SELECT title, detectionSource, detectionConfidence, detectionReason, startAnchor, endAnchor, isManuallyEdited FROM sections WHERE id = 'section'").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("Chapter One", cursor.getString(0))
+            assertEquals("LEGACY", cursor.getString(1))
+            assertEquals(0.5f, cursor.getFloat(2), 0.001f)
+            assertTrue(cursor.getString(3).isNotBlank())
+            assertEquals("", cursor.getString(4))
+            assertEquals("", cursor.getString(5))
+            assertEquals(0, cursor.getInt(6))
+        }
+        migrated.close()
+    }
 }

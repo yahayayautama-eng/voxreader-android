@@ -155,6 +155,17 @@ object DatabaseModule {
         }
     }
 
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(database: SupportSQLiteDatabase) {
+            database.execSQL("ALTER TABLE sections ADD COLUMN detectionSource TEXT NOT NULL DEFAULT 'LEGACY'")
+            database.execSQL("ALTER TABLE sections ADD COLUMN detectionConfidence REAL NOT NULL DEFAULT 0.5")
+            database.execSQL("ALTER TABLE sections ADD COLUMN detectionReason TEXT NOT NULL DEFAULT 'Imported before structure analysis metadata was available'")
+            database.execSQL("ALTER TABLE sections ADD COLUMN startAnchor TEXT NOT NULL DEFAULT ''")
+            database.execSQL("ALTER TABLE sections ADD COLUMN endAnchor TEXT NOT NULL DEFAULT ''")
+            database.execSQL("ALTER TABLE sections ADD COLUMN isManuallyEdited INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
     @Provides
     @Singleton
     fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase {
@@ -163,7 +174,7 @@ object DatabaseModule {
             AppDatabase::class.java,
             "voxleaf_db"
         )
-        .addMigrations(migration1To2, migration2To3, migration3To4, migration4To5, migration5To6, MIGRATION_6_7, MIGRATION_7_8)
+        .addMigrations(migration1To2, migration2To3, migration3To4, migration4To5, migration5To6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
         .build()
     }
 

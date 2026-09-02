@@ -24,7 +24,7 @@ import com.voxleaf.reader.data.local.entity.TextChunkEntity
         HighlightEntity::class,
         ListeningDayEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {

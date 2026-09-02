@@ -4,8 +4,10 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 @Entity(tableName = "books")
+@Serializable
 data class BookEntity(
     @PrimaryKey val id: String,
     val title: String,
@@ -31,12 +33,19 @@ data class BookEntity(
     ],
     indices = [Index("bookId")]
 )
+@Serializable
 data class SectionEntity(
     @PrimaryKey val id: String,
     val bookId: String,
     val chapterNumber: Int,
     val title: String,
-    val estimatedMinutes: Int
+    val estimatedMinutes: Int,
+    val detectionSource: String = "DETECTED",
+    val detectionConfidence: Float = 0.5f,
+    val detectionReason: String = "",
+    val startAnchor: String = "",
+    val endAnchor: String = "",
+    val isManuallyEdited: Boolean = false
 )
 
 @Entity(
@@ -51,6 +60,7 @@ data class SectionEntity(
     ],
     indices = [Index("sectionId")]
 )
+@Serializable
 data class TextChunkEntity(
     @PrimaryKey val id: String,
     val sectionId: String,
@@ -71,6 +81,7 @@ data class TextChunkEntity(
     ],
     indices = [Index("bookId")]
 )
+@Serializable
 data class ReadingProgressEntity(
     @PrimaryKey val bookId: String,
     val currentChapterIndex: Int,
@@ -170,6 +181,7 @@ data class AudioCueEntity(
     ],
     indices = [Index("bookId")]
 )
+@Serializable
 data class HighlightEntity(
     @PrimaryKey val id: String,
     val bookId: String,
@@ -187,6 +199,7 @@ data class HighlightEntity(
  * book should not rewrite your reading history, and the stats screen tolerates unknown book ids.
  */
 @Entity(tableName = "listening_days", primaryKeys = ["date", "bookId"])
+@Serializable
 data class ListeningDayEntity(
     /** Local calendar date as ISO yyyy-MM-dd — the unit a heatmap and a streak are both counted in. */
     val date: String,
@@ -206,6 +219,7 @@ data class ListeningDayEntity(
     ],
     indices = [Index("bookId")]
 )
+@Serializable
 data class BookmarkEntity(
     @PrimaryKey val id: String,
     val bookId: String,

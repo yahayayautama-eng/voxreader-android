@@ -49,12 +49,20 @@ class RoomBookRepository @Inject constructor(
             currentPosition = progress?.currentPosition ?: 0,
             audioPositionMs = progress?.audioPositionMs ?: 0L,
             isFavorite = book.isFavorite,
+            lastProgressUpdatedAt = progress?.lastUpdatedAt ?: 0L,
             chapters = sections.sortedBy { it.section.chapterNumber }.map { sectionWithChunks ->
                 Chapter(
                     chapterNumber = sectionWithChunks.section.chapterNumber,
                     title = sectionWithChunks.section.title,
                     content = sectionWithChunks.chunks.sortedBy { it.sequenceNumber }.joinToString(" ") { it.text },
-                    estimatedMinutes = sectionWithChunks.section.estimatedMinutes
+                    estimatedMinutes = sectionWithChunks.section.estimatedMinutes,
+                    id = sectionWithChunks.section.id,
+                    detectionSource = sectionWithChunks.section.detectionSource,
+                    detectionConfidence = sectionWithChunks.section.detectionConfidence,
+                    detectionReason = sectionWithChunks.section.detectionReason,
+                    startAnchor = sectionWithChunks.section.startAnchor,
+                    endAnchor = sectionWithChunks.section.endAnchor,
+                    isManuallyEdited = sectionWithChunks.section.isManuallyEdited
                 )
             }
         )
@@ -109,7 +117,13 @@ class RoomBookRepository @Inject constructor(
                     bookId = book.id,
                     chapterNumber = chapter.chapterNumber,
                     title = chapter.title,
-                    estimatedMinutes = chapter.estimatedMinutes
+                    estimatedMinutes = chapter.estimatedMinutes,
+                    detectionSource = chapter.detectionSource,
+                    detectionConfidence = chapter.detectionConfidence,
+                    detectionReason = chapter.detectionReason,
+                    startAnchor = chapter.startAnchor,
+                    endAnchor = chapter.endAnchor,
+                    isManuallyEdited = chapter.isManuallyEdited
                 )
             )
             // Split content roughly by sentences for TextChunkEntity

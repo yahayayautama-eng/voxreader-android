@@ -2,6 +2,9 @@ package com.voxleaf.reader.data.local.dao
 
 import androidx.room.Dao
 import androidx.room.Query
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
+import com.voxleaf.reader.data.local.entity.ListeningDayEntity
 import kotlinx.coroutines.flow.Flow
 
 data class DayTotal(val date: String, val seconds: Int)
@@ -10,6 +13,12 @@ data class BookTotal(val bookId: String, val seconds: Int)
 
 @Dao
 interface ListeningDao {
+
+    @Query("SELECT * FROM listening_days")
+    suspend fun getAllListeningDaysNow(): List<ListeningDayEntity>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertListeningDays(days: List<ListeningDayEntity>)
 
     /**
      * Accumulates into today's row. An upsert rather than read-modify-write so concurrent ticks from

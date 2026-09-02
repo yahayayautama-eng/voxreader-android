@@ -29,6 +29,9 @@ interface BookDao {
     suspend fun insertBook(book: BookEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertBooks(books: List<BookEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSections(sections: List<SectionEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
@@ -36,6 +39,21 @@ interface BookDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertReadingProgress(progress: ReadingProgressEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertReadingProgress(progress: List<ReadingProgressEntity>)
+
+    @Query("SELECT * FROM books")
+    suspend fun getAllBookEntities(): List<BookEntity>
+
+    @Query("SELECT * FROM sections ORDER BY bookId, chapterNumber")
+    suspend fun getAllSectionEntities(): List<SectionEntity>
+
+    @Query("SELECT * FROM text_chunks ORDER BY sectionId, sequenceNumber")
+    suspend fun getAllTextChunkEntities(): List<TextChunkEntity>
+
+    @Query("SELECT * FROM reading_progress")
+    suspend fun getAllReadingProgressEntities(): List<ReadingProgressEntity>
 
     @Query("UPDATE books SET isFavorite = CASE WHEN isFavorite = 1 THEN 0 ELSE 1 END WHERE id = :bookId")
     suspend fun toggleFavorite(bookId: String)
@@ -63,6 +81,9 @@ interface BookDao {
 
     @Query("SELECT sourceFilePath FROM books WHERE id = :bookId")
     suspend fun getSourceFilePath(bookId: String): String?
+
+    @Query("SELECT * FROM reading_progress WHERE bookId = :bookId")
+    suspend fun getReadingProgress(bookId: String): ReadingProgressEntity?
 
     @Query("DELETE FROM sections WHERE bookId = :bookId")
     suspend fun deleteSectionsForBook(bookId: String)
