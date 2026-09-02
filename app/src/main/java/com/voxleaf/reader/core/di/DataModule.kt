@@ -6,6 +6,7 @@ import com.voxleaf.reader.domain.repository.BookRepository
 import com.voxleaf.reader.domain.usecase.ImportScannedBookUseCase
 import com.voxleaf.reader.domain.usecase.ImportTextBookUseCase
 import com.voxleaf.reader.domain.usecase.RedetectChaptersUseCase
+import com.voxleaf.reader.domain.usecase.SectionStructureUseCase
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -33,5 +34,10 @@ abstract class DataModule {
     abstract fun bindRedetectChaptersUseCase(
         importer: TextBookImporterImpl
     ): RedetectChaptersUseCase
+
+    @Binds
+    abstract fun bindSectionStructureUseCase(
+        importer: TextBookImporterImpl
+    ): SectionStructureUseCase
 
 }
