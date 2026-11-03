@@ -38,6 +38,7 @@ android {
     create("google") {
       dimension = "store"
       buildConfigField("boolean", "ONLINE_VOICES", "true")
+      buildConfigField("boolean", "REQUIRE_PRIVACY_CONSENT", "false")
     }
     // AppGallery and the Chinese Android stores install plain APKs, which never contain asset
     // packs, so the voices are packed into the APK itself (see sourceSets). Ship this flavor with
@@ -46,6 +47,7 @@ android {
     create("huawei") {
       dimension = "store"
       buildConfigField("boolean", "ONLINE_VOICES", "false")
+      buildConfigField("boolean", "REQUIRE_PRIVACY_CONSENT", "true")
     }
   }
 
@@ -148,6 +150,8 @@ dependencies {
   }
   implementation("org.bouncycastle:bcpkix-jdk18on:1.79")
   implementation("com.google.mlkit:text-recognition:16.0.1")
+  // Bundled Chinese model (also reads Latin), used when the device language is Chinese.
+  implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
   // sherpa-onnx publishes no Maven coordinate; the official artifact is the release-page AAR.
   // The static-link build bundles ONNX Runtime, so this is the only native library needed.
   implementation(files("libs/sherpa-onnx-static-link-onnxruntime-1.13.5.aar"))

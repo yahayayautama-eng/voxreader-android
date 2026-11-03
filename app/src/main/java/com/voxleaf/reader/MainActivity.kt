@@ -10,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.voxleaf.reader.core.ui.PrivacyConsentScreen
 import com.voxleaf.reader.core.ui.VoxLeafApp
 import com.voxleaf.reader.tts.TtsManager
 import com.voxleaf.reader.data.local.datastore.AppSettingsManager
@@ -58,15 +59,25 @@ class MainActivity : ComponentActivity() {
                 "DARK" -> true
                 else -> isSystemInDarkTheme()
             }
+            // Null until DataStore answers, so the consent screen never flashes for returning users.
+            val privacyAccepted: Boolean? by settingsManager.privacyAcceptedFlow
+                .collectAsStateWithLifecycle(initialValue = null)
             MyApplicationTheme(darkTheme = useDarkTheme) {
-                VoxLeafApp(
-                    ttsManager = ttsManager,
-                    incomingDocumentUris = incomingDocumentUris,
-                    onIncomingDocumentsConsumed = {
-                        incomingDocumentUris.value = emptyList()
-                        intent.action = null
-                    }
-                )
+                when {
+                    BuildConfig.REQUIRE_PRIVACY_CONSENT && privacyAccepted == null -> Unit
+                    BuildConfig.REQUIRE_PRIVACY_CONSENT && privacyAccepted == false -> PrivacyConsentScreen(
+                        onAgree = { lifecycleScope.launch { settingsManager.setPrivacyAccepted(true) } },
+                        onDecline = ::finish
+                    )
+                    else -> VoxLeafApp(
+                        ttsManager = ttsManager,
+                        incomingDocumentUris = incomingDocumentUris,
+                        onIncomingDocumentsConsumed = {
+                            incomingDocumentUris.value = emptyList()
+                            intent.action = null
+                        }
+                    )
+                }
             }
         }
     }

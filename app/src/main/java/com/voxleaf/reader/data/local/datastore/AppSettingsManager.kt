@@ -34,6 +34,7 @@ class AppSettingsManager @Inject constructor(
         val AUTO_PLAY_KEY = booleanPreferencesKey("auto_play_on_open")
         val HIGHLIGHT_KEY = booleanPreferencesKey("highlight_spoken_sentences")
         val HIDE_RECENTS_KEY = booleanPreferencesKey("hide_content_in_recents")
+        val PRIVACY_ACCEPTED_KEY = booleanPreferencesKey("privacy_accepted")
         val VOICE_FAVORITES_KEY = stringSetPreferencesKey("favorite_voice_ids")
         val VOICE_RECENTS_KEY = stringPreferencesKey("recent_voice_ids")
     }
@@ -57,6 +58,7 @@ class AppSettingsManager @Inject constructor(
     val autoPlayFlow: Flow<Boolean> = context.dataStore.data.map { it[AUTO_PLAY_KEY] ?: false }
     val highlightSentencesFlow: Flow<Boolean> = context.dataStore.data.map { it[HIGHLIGHT_KEY] ?: true }
     val hideContentInRecentsFlow: Flow<Boolean> = context.dataStore.data.map { it[HIDE_RECENTS_KEY] ?: false }
+    val privacyAcceptedFlow: Flow<Boolean> = context.dataStore.data.map { it[PRIVACY_ACCEPTED_KEY] ?: false }
     val favoriteVoiceIdsFlow: Flow<Set<String>> = context.dataStore.data.map { it[VOICE_FAVORITES_KEY] ?: emptySet() }
     val recentVoiceIdsFlow: Flow<List<String>> = context.dataStore.data.map { preferences ->
         preferences[VOICE_RECENTS_KEY].orEmpty().split('\n').filter(String::isNotBlank).take(8)
@@ -68,6 +70,10 @@ class AppSettingsManager @Inject constructor(
 
     suspend fun setHighlightSentences(enabled: Boolean) {
         context.dataStore.edit { it[HIGHLIGHT_KEY] = enabled }
+    }
+
+    suspend fun setPrivacyAccepted(accepted: Boolean) {
+        context.dataStore.edit { it[PRIVACY_ACCEPTED_KEY] = accepted }
     }
 
     suspend fun setHideContentInRecents(enabled: Boolean) {

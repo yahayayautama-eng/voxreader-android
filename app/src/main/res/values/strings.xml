@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
     <string name="app_name">Vox Reader</string>
     <string name="title_splash">Splash</string>
     <string name="title_library">Library</string>
@@ -312,4 +312,9 @@
     <string name="scan_error_ocr_page">Text recognition failed on scanned page %1$s. Your scan is saved; try again.</string>
     <string name="scan_error_no_readable_text">No readable text was found in the scanned pages. Your scan is saved so you can retry.</string>
     <string name="scan_error_processing">The scanned pages could not be processed. Your scan is saved so you can retry.</string>
+    <string name="privacy_title">Privacy notice</string>
+    <string name="privacy_body">Vox Reader opens and reads your books on this device only. Your files and reading data are stored on this device. We do not collect personal information, do not create accounts, do not show ads, and do not send your text to any server.</string>
+    <string name="privacy_sdk_list">Third-party components in this app: Google ML Kit text recognition (runs on the device to read scanned pages, sends no data) and sherpa-onnx (runs on the device to speak text, sends no data). Tap Agree to continue.</string>
+    <string name="privacy_agree">Agree and continue</string>
+    <string name="privacy_decline">Disagree and exit</string>
 </resources>

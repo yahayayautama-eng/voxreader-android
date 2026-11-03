@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
+    <string name="privacy_title">隐私提示</string>
+    <string name="privacy_body">Vox Reader 仅在本设备上打开和朗读您的书籍。您的文件和阅读数据都保存在本设备中。我们不收集个人信息，不创建账号，不展示广告，也不会将您的文本发送到任何服务器。</string>
+    <string name="privacy_sdk_list">本应用使用的第三方组件：Google ML Kit 文字识别（在设备本地运行，用于识别扫描页面，不发送任何数据）和 sherpa-onnx（在设备本地运行，用于朗读文本，不发送任何数据）。点击“同意”继续使用。</string>
+    <string name="privacy_agree">同意并继续</string>
+    <string name="privacy_decline">不同意并退出</string>
+</resources>
