@@ -1,0 +1,4 @@
+<resources>
+    <!-- This build has no online voice, so nothing is ever sent off the device. -->
+    <string name="about_privacy_body">Documents, camera OCR, reading progress, bookmarks, highlights, and listening history stay on this device. Speech is generated on the device, and no text is sent anywhere.</string>
+</resources>

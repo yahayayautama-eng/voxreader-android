@@ -1,0 +1,3 @@
+<resources>
+    <string name="about_privacy_body">文档、相机文字识别、阅读进度、书签、高亮和收听记录都只保存在本设备上。语音在本机生成，不会向任何地方发送文字。</string>
+</resources>
