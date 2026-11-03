@@ -1,5 +1,6 @@
 package com.voxleaf.reader.feature.voiceselection
 
+import com.voxleaf.reader.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -95,15 +96,15 @@ fun VoiceSelectionScreen(
             Spacer(modifier = Modifier.width(12.dp))
             Column {
                 Text(
-                    text = "VOICE ENGINE",
+                    text = stringResource(R.string.vs_engine_label),
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.secondary
                 )
                 Text(
                     text = if (uiState.engineId == EngineId.OFFLINE) {
-                        "Bundled neural speech synthesis — no internet, nothing leaves this device"
+                        stringResource(R.string.vs_engine_offline_desc)
                     } else {
-                        "Microsoft Edge's online voices — the read text is sent to Microsoft's servers"
+                        stringResource(R.string.vs_engine_edge_desc)
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -116,7 +117,7 @@ fun VoiceSelectionScreen(
             modifier = Modifier.padding(bottom = 16.dp)
         ) {
             EngineChip(
-                label = "Offline",
+                label = stringResource(R.string.vs_offline),
                 selected = uiState.engineId == EngineId.OFFLINE,
                 onClick = { viewModel.setEngine(EngineId.OFFLINE) },
                 testTag = "engine_chip_offline",
@@ -124,7 +125,7 @@ fun VoiceSelectionScreen(
             )
             if (BuildConfig.ONLINE_VOICES) {
                 EngineChip(
-                    label = "Edge TTS (online)",
+                    label = stringResource(R.string.vs_edge_online),
                     selected = uiState.engineId == EngineId.EDGE,
                     onClick = { viewModel.setEngine(EngineId.EDGE) },
                     testTag = "engine_chip_edge",
@@ -152,7 +153,7 @@ fun VoiceSelectionScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Speech Rate",
+                            text = stringResource(R.string.vs_speech_rate),
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
                         )
                         Text(
@@ -202,7 +203,7 @@ fun VoiceSelectionScreen(
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("Search 400+ voices by name or language…") },
+                placeholder = { Text(stringResource(R.string.vs_search_placeholder)) },
                 leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp).testTag("voice_search_field")

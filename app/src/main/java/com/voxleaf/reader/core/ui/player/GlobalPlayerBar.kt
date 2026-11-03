@@ -1,5 +1,7 @@
 package com.voxleaf.reader.core.ui.player
 
+import com.voxleaf.reader.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -115,7 +117,7 @@ fun GlobalPlayerBar(
                 IconButton(onClick = { viewModel.skip(-1) }) {
                     Icon(
                         Icons.Outlined.SkipPrevious,
-                        contentDescription = "Previous sentence",
+                        contentDescription = stringResource(R.string.reader_previous_sentence),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
@@ -134,7 +136,7 @@ fun GlobalPlayerBar(
                         } else {
                             Icons.Outlined.PlayArrow
                         },
-                        contentDescription = if (state.isSpeaking) "Pause" else "Play",
+                        contentDescription = if (state.isSpeaking) stringResource(R.string.pb_pause) else stringResource(R.string.pb_play),
                         tint = MaterialTheme.colorScheme.onPrimary,
                         modifier = Modifier.size(22.dp)
                     )
@@ -142,7 +144,7 @@ fun GlobalPlayerBar(
                 IconButton(onClick = { viewModel.skip(+1) }) {
                     Icon(
                         Icons.Outlined.SkipNext,
-                        contentDescription = "Next sentence",
+                        contentDescription = stringResource(R.string.reader_next_sentence),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }

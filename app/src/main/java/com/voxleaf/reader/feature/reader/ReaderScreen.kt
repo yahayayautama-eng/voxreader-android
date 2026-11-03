@@ -1,5 +1,6 @@
 package com.voxleaf.reader.feature.reader
 
+import com.voxleaf.reader.R
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.Image
 import androidx.compose.ui.layout.ContentScale
@@ -569,15 +570,15 @@ fun ReaderScreen(
             if (showBookmarkDialog) {
                 AlertDialog(
                     onDismissRequest = { showBookmarkDialog = false },
-                    title = { Text("Add Bookmark") },
+                    title = { Text(stringResource(R.string.reader_add_bookmark)) },
                     text = {
                         Column {
-                            Text("Save current location with an optional note:")
+                            Text(stringResource(R.string.rd_bookmark_prompt))
                             Spacer(modifier = Modifier.height(12.dp))
                             OutlinedTextField(
                                 value = bookmarkNote,
                                 onValueChange = { bookmarkNote = it },
-                                label = { Text("Note (Optional)") },
+                                label = { Text(stringResource(R.string.rd_note_optional)) },
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -590,12 +591,12 @@ fun ReaderScreen(
                                 showBookmarkDialog = false
                             }
                         ) {
-                            Text("Save")
+                            Text(stringResource(R.string.ui_save))
                         }
                     },
                     dismissButton = {
                         TextButton(onClick = { showBookmarkDialog = false }) {
-                            Text("Cancel")
+                            Text(stringResource(R.string.library_cancel))
                         }
                     }
                 )
@@ -614,10 +615,10 @@ fun ReaderScreen(
             if (showSleepTimerDialog) {
                 AlertDialog(
                     onDismissRequest = { showSleepTimerDialog = false },
-                    title = { Text("Sleep timer") },
+                    title = { Text(stringResource(R.string.reader_sleep_timer)) },
                     text = {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Text("Stop the offline voice after:")
+                            Text(stringResource(R.string.rd_sleep_prompt))
                             listOf(5, 10, 15, 30).forEach { minutes ->
                                 OutlinedButton(
                                     onClick = {
@@ -625,17 +626,17 @@ fun ReaderScreen(
                                         showSleepTimerDialog = false
                                     },
                                     modifier = Modifier.fillMaxWidth()
-                                ) { Text("$minutes minutes") }
+                                ) { Text(stringResource(R.string.rd_minutes, minutes)) }
                             }
                             if (uiState.sleepTimerMinutes != null) {
                                 TextButton(onClick = {
                                     viewModel.handleAction(ReaderUiAction.OnSleepTimer(null))
                                     showSleepTimerDialog = false
-                                }) { Text("Turn off timer") }
+                                }) { Text(stringResource(R.string.rd_timer_off)) }
                             }
                         }
                     },
-                    confirmButton = { TextButton(onClick = { showSleepTimerDialog = false }) { Text("Cancel") } }
+                    confirmButton = { TextButton(onClick = { showSleepTimerDialog = false }) { Text(stringResource(R.string.library_cancel)) } }
                 )
             }
         }
@@ -777,7 +778,7 @@ private fun HighlightSheet(
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text(
-                text = if (existing == null) "Highlight passage" else "Edit highlight",
+                text = if (existing == null) stringResource(R.string.rd_highlight_passage) else stringResource(R.string.rd_edit_highlight),
                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
             )
             Text(
@@ -820,7 +821,7 @@ private fun HighlightSheet(
             OutlinedTextField(
                 value = note,
                 onValueChange = { note = it },
-                label = { Text("Note (optional)") },
+                label = { Text(stringResource(R.string.rd_note_optional)) },
                 minLines = 2,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -829,12 +830,12 @@ private fun HighlightSheet(
                     OutlinedButton(
                         onClick = onRemove,
                         modifier = Modifier.weight(1f).testTag("remove_highlight_button")
-                    ) { Text("Remove") }
+                    ) { Text(stringResource(R.string.saved_item_remove)) }
                 }
                 Button(
                     onClick = { onSave(selectedColor, note) },
                     modifier = Modifier.weight(1f).testTag("save_highlight_button")
-                ) { Text("Save") }
+                ) { Text(stringResource(R.string.ui_save)) }
             }
         }
     }

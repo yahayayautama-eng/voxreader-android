@@ -188,7 +188,7 @@ fun LibraryScreenContent(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
                     icon = { Icon(Icons.AutoMirrored.Outlined.NoteAdd, contentDescription = null) },
-                    text = { Text("Import", fontWeight = FontWeight.Bold) },
+                    text = { Text(stringResource(R.string.title_import), fontWeight = FontWeight.Bold) },
                     modifier = Modifier.testTag("add_book_fab")
                 )
             }
@@ -202,9 +202,9 @@ fun LibraryScreenContent(
                     onRetry = { onAction(LibraryUiAction.OnRetryClick) }
                 )
                 is LibraryUiState.Empty -> EmptyState(
-                    title = "Build your shelf",
-                    message = "Import a PDF, EPUB, DOCX, or a scanned page. Vox Reader reads it aloud on-device — nothing leaves your phone.",
-                    actionLabel = "Import a document",
+                    title = stringResource(R.string.lib_empty_title),
+                    message = stringResource(R.string.lib_empty_message),
+                    actionLabel = stringResource(R.string.lib_import_document),
                     onAction = { onAction(LibraryUiAction.OnAddBookClick) },
                     showShelf = true
                 )
@@ -388,7 +388,7 @@ private fun LibraryShelf(
             }
 
             if (!uiState.isSelectionMode && uiState.recentBooks.isNotEmpty()) {
-                fullWidth(columns) { SectionLabel("Now listening") }
+                fullWidth(columns) { SectionLabel(stringResource(R.string.lib_now_listening)) }
                 items(
                     uiState.recentBooks,
                     key = { "recent_${it.id}" },
@@ -407,7 +407,7 @@ private fun LibraryShelf(
                 fullWidth(columns) {
                     EmptyState(
                         message = if (uiState.searchQuery.isNotBlank()) {
-                            "Nothing matches \"${uiState.searchQuery}\". Try a different word, or clear the search."
+                            stringResource(R.string.lib_search_no_match, uiState.searchQuery)
                         } else {
                             stringResource(R.string.library_no_filter_results)
                         },
@@ -559,13 +559,14 @@ private fun NowListeningCard(book: Book, onClick: () -> Unit) {
                     )
                 }
                 Spacer(modifier = Modifier.width(14.dp))
+                val resumeDescription = stringResource(R.string.lib_resume, book.title)
                 Box(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
                         .background(MaterialTheme.colorScheme.primary)
                         .clickable(onClick = onClick)
-                        .semantics { contentDescription = "Resume ${book.title}" },
+                        .semantics { contentDescription = resumeDescription },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(

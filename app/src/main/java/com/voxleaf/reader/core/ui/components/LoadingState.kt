@@ -1,5 +1,7 @@
 package com.voxleaf.reader.core.ui.components
 
+import com.voxleaf.reader.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -51,7 +53,7 @@ fun LoadingState(modifier: Modifier = Modifier, contentDescription: String = "Lo
 fun ShelfSkeleton(
     columns: Int,
     modifier: Modifier = Modifier,
-    contentDescription: String = "Loading your library"
+    contentDescription: String = stringResource(R.string.search_loading)
 ) {
     val pulse = rememberPulseAlpha()
     Column(

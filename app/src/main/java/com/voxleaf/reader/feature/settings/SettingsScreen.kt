@@ -213,16 +213,16 @@ fun SettingsScreen(
             PrivacyCard()
             Spacer(modifier = Modifier.height(26.dp))
 
-            SectionLabel("Appearance")
+            SectionLabel(stringResource(R.string.st_appearance))
             SettingsGroup {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text(
-                        text = "App theme",
+                        text = stringResource(R.string.st_app_theme),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
                     Text(
-                        text = "Light uses a warm off-white canvas. System follows your device setting.",
+                        text = stringResource(R.string.st_theme_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -230,7 +230,7 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        listOf("LIGHT" to "Light", "DARK" to "Dark", "SYSTEM" to "System").forEach { (value, label) ->
+                        listOf("LIGHT" to stringResource(R.string.reader_theme_light), "DARK" to stringResource(R.string.reader_theme_dark), "SYSTEM" to stringResource(R.string.st_system)).forEach { (value, label) ->
                             val selected = appTheme.equals(value, ignoreCase = true)
                             Box(
                                 modifier = Modifier
@@ -268,11 +268,11 @@ fun SettingsScreen(
             }
             Spacer(modifier = Modifier.height(26.dp))
 
-            SectionLabel("Reader Appearance")
+            SectionLabel(stringResource(R.string.st_reader_appearance))
             SettingsGroup {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     Text(
-                        text = "Color Theme",
+                        text = stringResource(R.string.st_color_theme),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -320,7 +320,7 @@ fun SettingsScreen(
                     }
 
                     Text(
-                        text = "Typography",
+                        text = stringResource(R.string.st_typography),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -373,7 +373,7 @@ fun SettingsScreen(
                     }
 
                     Text(
-                        text = "Line Spacing",
+                        text = stringResource(R.string.reader_line_spacing),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -382,9 +382,9 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         listOf(
-                            1.4f to "Compact",
-                            1.75f to "Normal",
-                            2.1f to "Relaxed"
+                            1.4f to stringResource(R.string.st_spacing_compact),
+                            1.75f to stringResource(R.string.st_spacing_normal),
+                            2.1f to stringResource(R.string.st_spacing_relaxed)
                         ).forEach { (spacing, label) ->
                             val selected = kotlin.math.abs(readerLineSpacing - spacing) < 0.05f
                             androidx.compose.material3.OutlinedButton(
@@ -402,7 +402,7 @@ fun SettingsScreen(
                     }
 
                     Text(
-                        text = "Default Font Size: $readerFontSize sp",
+                        text = stringResource(R.string.st_default_font_size, readerFontSize),
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -412,7 +412,7 @@ fun SettingsScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         androidx.compose.material3.IconButton(onClick = { viewModel.setReaderFontSize((readerFontSize - 1).coerceAtLeast(12)) }) {
-                            Icon(androidx.compose.material.icons.Icons.Outlined.TextFields, contentDescription = "Decrease Font Size")
+                            Icon(androidx.compose.material.icons.Icons.Outlined.TextFields, contentDescription = stringResource(R.string.reader_decrease_text_size))
                         }
                         androidx.compose.material3.Slider(
                             value = readerFontSize.toFloat(),
@@ -421,21 +421,21 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         )
                         androidx.compose.material3.IconButton(onClick = { viewModel.setReaderFontSize((readerFontSize + 1).coerceAtMost(36)) }) {
-                            Icon(androidx.compose.material.icons.Icons.Outlined.TextFields, contentDescription = "Increase Font Size", modifier = Modifier.size(28.dp))
+                            Icon(androidx.compose.material.icons.Icons.Outlined.TextFields, contentDescription = stringResource(R.string.reader_increase_text_size), modifier = Modifier.size(28.dp))
                         }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(26.dp))
-            SectionLabel("Voice")
+            SectionLabel(stringResource(R.string.reader_voice))
             SettingsGroup {
                 SettingsClickableItem(
-                    title = "Voice and speed",
+                    title = stringResource(R.string.reader_voice_speed),
                     subtitle = if (BuildConfig.ONLINE_VOICES) {
-                        "Offline neural voices, Edge TTS online voices, and reading speed"
+                        stringResource(R.string.st_voice_subtitle_online)
                     } else {
-                        "Offline neural voices and reading speed"
+                        stringResource(R.string.st_voice_subtitle_offline)
                     },
                     icon = Icons.Outlined.RecordVoiceOver,
                     iconColor = MaterialTheme.colorScheme.primary,
@@ -445,11 +445,11 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(26.dp))
-            SectionLabel("Reading")
+            SectionLabel(stringResource(R.string.st_reading))
             SettingsGroup {
                 SettingsSwitchItem(
-                    title = "Start speaking on open",
-                    subtitle = "Begin reading aloud as soon as you open a document",
+                    title = stringResource(R.string.st_autoplay_title),
+                    subtitle = stringResource(R.string.st_autoplay_subtitle),
                     checked = autoPlay,
                     onCheckedChange = viewModel::setAutoPlay,
                     testTag = "settings_autoplay_switch"
@@ -464,16 +464,16 @@ fun SettingsScreen(
                 )
                 GroupDivider()
                 SettingsSwitchItem(
-                    title = "Highlight spoken sentence",
-                    subtitle = "Tint the sentence being read so you can follow along",
+                    title = stringResource(R.string.st_highlight_title),
+                    subtitle = stringResource(R.string.st_highlight_subtitle),
                     checked = highlightSentences,
                     onCheckedChange = viewModel::setHighlightSentences,
                     testTag = "settings_highlight_switch"
                 )
                 GroupDivider()
                 SettingsClickableItem(
-                    title = "Listening stats",
-                    subtitle = "Daily minutes, streaks, and time per book — all on this device",
+                    title = stringResource(R.string.st_stats_title),
+                    subtitle = stringResource(R.string.st_stats_subtitle),
                     icon = Icons.Outlined.Insights,
                     iconColor = Color(0xFF10B981),
                     onClick = onNavigateToStats,
@@ -522,11 +522,11 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(26.dp))
-            SectionLabel("About")
+            SectionLabel(stringResource(R.string.title_about))
             SettingsGroup {
                 SettingsClickableItem(
-                    title = "About Vox Reader",
-                    subtitle = "Version ${BuildConfig.VERSION_NAME} · open source licences",
+                    title = stringResource(R.string.st_about_app),
+                    subtitle = stringResource(R.string.st_version_licences, BuildConfig.VERSION_NAME),
                     icon = Icons.Outlined.Info,
                     iconColor = MaterialTheme.colorScheme.primary,
                     onClick = onNavigateToAbout,
@@ -591,7 +591,7 @@ private fun PrivacyCard() {
             Spacer(modifier = Modifier.width(14.dp))
             Column {
                 Text(
-                    text = "Offline by default",
+                    text = stringResource(R.string.st_offline_default),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
@@ -599,9 +599,9 @@ private fun PrivacyCard() {
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = if (BuildConfig.ONLINE_VOICES) {
-                        "Documents are always parsed on-device. Voicing them stays fully offline too, unless you opt into the Edge TTS online voice in Voice settings — that sends the text being read to Microsoft. Vox Reader has no account of its own either way."
+                        stringResource(R.string.st_privacy_text_online)
                     } else {
-                        "Documents are always parsed and voiced on-device. No text leaves this device, and Vox Reader has no account of its own."
+                        stringResource(R.string.st_privacy_text_offline)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

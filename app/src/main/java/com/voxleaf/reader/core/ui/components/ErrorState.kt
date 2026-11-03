@@ -1,5 +1,7 @@
 package com.voxleaf.reader.core.ui.components
 
+import com.voxleaf.reader.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -60,7 +62,7 @@ fun ErrorState(
             colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary, contentColor = MaterialTheme.colorScheme.onPrimary),
             modifier = Modifier.height(48.dp)
         ) {
-            Text(text = "Retry", fontWeight = FontWeight.Bold)
+            Text(text = stringResource(R.string.import_retry), fontWeight = FontWeight.Bold)
         }
     }
 }

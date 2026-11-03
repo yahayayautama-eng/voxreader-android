@@ -1,5 +1,7 @@
 package com.voxleaf.reader.feature.splash
 
+import com.voxleaf.reader.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
@@ -64,7 +66,7 @@ fun SplashScreen(
                 )
             )
             Text(
-                text = "Private On-Device Reader",
+                text = stringResource(R.string.sp_tagline),
                 style = MaterialTheme.typography.titleMedium.copy(
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
                 )

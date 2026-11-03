@@ -1,5 +1,6 @@
 package com.voxleaf.reader.feature.bookdetails
 
+import com.voxleaf.reader.R
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Bookmarks
@@ -187,8 +188,8 @@ fun BookDetailsScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = if (book.currentChapterIndex > 0) {
-                                    "Resume · Ch ${book.currentChapterIndex + 1}"
-                                } else "Start listening",
+                                    stringResource(R.string.bd_resume_chapter, book.currentChapterIndex + 1)
+                                } else stringResource(R.string.bd_start_listening),
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -198,13 +199,13 @@ fun BookDetailsScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             DetailsOutlineButton(
-                                text = "Bookmark",
+                                text = stringResource(R.string.reader_bookmark),
                                 icon = Icons.Outlined.Bookmarks,
                                 onClick = onNavigateToBookmarks,
                                 modifier = Modifier.weight(1f).testTag("bookmarks_button")
                             )
                             DetailsOutlineButton(
-                                text = if (book.isFavorite) "In favorites" else "Favorite",
+                                text = if (book.isFavorite) stringResource(R.string.bd_in_favorites) else stringResource(R.string.bd_favorite),
                                 icon = if (book.isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                                 tint = if (book.isFavorite) MaterialTheme.colorScheme.primary else null,
                                 onClick = { viewModel.handleAction(BookDetailsUiAction.OnToggleFavorite) },
@@ -217,7 +218,7 @@ fun BookDetailsScreen(
                             horizontalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             DetailsOutlineButton(
-                                text = "Edit details",
+                                text = stringResource(R.string.bd_edit_details),
                                 icon = Icons.Outlined.Edit,
                                 onClick = { viewModel.handleAction(BookDetailsUiAction.OnEditMetadata) },
                                 modifier = Modifier.weight(1f).testTag("edit_metadata_button")
@@ -239,7 +240,7 @@ fun BookDetailsScreen(
                         // Destructive, so it leaves the grid of equal-weight actions and takes the
                         // error colour: deleting a book should not look like favouriting one.
                         DetailsOutlineButton(
-                            text = "Delete",
+                            text = stringResource(R.string.library_delete),
                             icon = Icons.Outlined.DeleteOutline,
                             onClick = { showDeleteConfirmation = true },
                             tint = MaterialTheme.colorScheme.error,
@@ -258,7 +259,7 @@ fun BookDetailsScreen(
 
                         if (book.description.isNotBlank()) {
                             Spacer(modifier = Modifier.height(24.dp))
-                            SectionLabel("About this document")
+                            SectionLabel(stringResource(R.string.bd_about_document))
                             Text(
                                 text = book.description,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -269,7 +270,7 @@ fun BookDetailsScreen(
                         Spacer(modifier = Modifier.height(24.dp))
                         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                         Spacer(modifier = Modifier.height(16.dp))
-                        SectionLabel("Chapters")
+                        SectionLabel(stringResource(R.string.bd_chapters))
                     }
                     itemsIndexed(book.chapters) { index, chapter ->
                         ChapterRow(
@@ -309,16 +310,16 @@ fun BookDetailsScreen(
                 if (showDeleteConfirmation) {
                     AlertDialog(
                         onDismissRequest = { showDeleteConfirmation = false },
-                        title = { Text("Remove book?") },
-                        text = { Text("This removes the book, its reading progress, bookmarks, and imported copy from this device.") },
+                        title = { Text(stringResource(R.string.bd_remove_title)) },
+                        text = { Text(stringResource(R.string.bd_remove_message)) },
                         confirmButton = {
                             Button(onClick = {
                                 showDeleteConfirmation = false
                                 viewModel.handleAction(BookDetailsUiAction.OnDeleteBook)
-                            }) { Text("Remove") }
+                            }) { Text(stringResource(R.string.saved_item_remove)) }
                         },
                         dismissButton = {
-                            OutlinedButton(onClick = { showDeleteConfirmation = false }) { Text("Cancel") }
+                            OutlinedButton(onClick = { showDeleteConfirmation = false }) { Text(stringResource(R.string.library_cancel)) }
                         }
                     )
                 }
@@ -568,7 +569,7 @@ private fun ChapterRow(
         )
         Spacer(modifier = Modifier.width(12.dp))
         if (state == ChapterState.Current) {
-            Text("Playing", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            Text(stringResource(R.string.bd_playing), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         } else {
             Text("$minutes min", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -608,17 +609,17 @@ private fun EditMetadataDialog(
     var genre by remember(book.id) { mutableStateOf(book.genre) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Edit book details") },
+        title = { Text(stringResource(R.string.bd_edit_book)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(title, { title = it }, label = { Text("Title") }, singleLine = true)
-                OutlinedTextField(author, { author = it }, label = { Text("Author") }, singleLine = true)
-                OutlinedTextField(genre, { genre = it }, label = { Text("Genre") }, singleLine = true)
-                OutlinedTextField(description, { description = it }, label = { Text("Description") }, minLines = 3)
+                OutlinedTextField(title, { title = it }, label = { Text(stringResource(R.string.bd_field_title)) }, singleLine = true)
+                OutlinedTextField(author, { author = it }, label = { Text(stringResource(R.string.bd_field_author)) }, singleLine = true)
+                OutlinedTextField(genre, { genre = it }, label = { Text(stringResource(R.string.bd_field_genre)) }, singleLine = true)
+                OutlinedTextField(description, { description = it }, label = { Text(stringResource(R.string.bd_field_description)) }, minLines = 3)
                 errorMessage?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
-        confirmButton = { Button(onClick = { onSave(title, author, description, genre) }) { Text("Save") } },
-        dismissButton = { OutlinedButton(onClick = onDismiss) { Text("Cancel") } }
+        confirmButton = { Button(onClick = { onSave(title, author, description, genre) }) { Text(stringResource(R.string.ui_save)) } },
+        dismissButton = { OutlinedButton(onClick = onDismiss) { Text(stringResource(R.string.library_cancel)) } }
     )
 }

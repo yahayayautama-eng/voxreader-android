@@ -127,7 +127,7 @@ fun VoxLeafApp(
                                     IconButton(onClick = { navController.navigateUp() }) {
                                         Icon(
                                             imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                                            contentDescription = "Navigate up"
+                                            contentDescription = stringResource(R.string.ui_navigate_up)
                                         )
                                     }
                                 }

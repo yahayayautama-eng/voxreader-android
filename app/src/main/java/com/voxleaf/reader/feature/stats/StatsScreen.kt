@@ -1,5 +1,7 @@
 package com.voxleaf.reader.feature.stats
 
+import com.voxleaf.reader.R
+import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -87,8 +89,8 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
 
     if (state.summary.totalSeconds == 0) {
         EmptyState(
-            title = "No listening yet",
-            message = "Play any book with the offline voice and your daily minutes, streaks, and per-book totals appear here.",
+            title = stringResource(R.string.ls_empty_title),
+            message = stringResource(R.string.ls_empty_message),
             icon = Icons.Outlined.Insights
         )
         return
@@ -110,7 +112,7 @@ fun StatsScreen(viewModel: StatsViewModel = hiltViewModel()) {
         if (state.books.isNotEmpty()) {
             item {
                 Text(
-                    text = "By book",
+                    text = stringResource(R.string.ls_by_book),
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onBackground
@@ -157,7 +159,7 @@ private fun Heatmap(cells: List<DayCell>) {
     val weeks = cells.chunked(7)
     Column {
         Text(
-            text = "Last ${weeks.size} weeks",
+            text = stringResource(R.string.ls_last_weeks, weeks.size),
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onBackground
@@ -187,7 +189,7 @@ private fun Heatmap(cells: List<DayCell>) {
         }
         Spacer(modifier = Modifier.height(10.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = "Less", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = stringResource(R.string.ls_less), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(modifier = Modifier.width(6.dp))
             (0..4).forEach { level ->
                 Box(
@@ -199,7 +201,7 @@ private fun Heatmap(cells: List<DayCell>) {
                 Spacer(modifier = Modifier.width(3.dp))
             }
             Spacer(modifier = Modifier.width(3.dp))
-            Text(text = "More", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(text = stringResource(R.string.ls_more), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
