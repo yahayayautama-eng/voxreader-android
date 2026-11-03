@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.voxleaf.reader.BuildConfig
 import com.voxleaf.reader.tts.EngineId
 
 @Composable
@@ -121,13 +122,15 @@ fun VoiceSelectionScreen(
                 testTag = "engine_chip_offline",
                 modifier = Modifier.weight(1f)
             )
-            EngineChip(
-                label = "Edge TTS (online)",
-                selected = uiState.engineId == EngineId.EDGE,
-                onClick = { viewModel.setEngine(EngineId.EDGE) },
-                testTag = "engine_chip_edge",
-                modifier = Modifier.weight(1f)
-            )
+            if (BuildConfig.ONLINE_VOICES) {
+                EngineChip(
+                    label = "Edge TTS (online)",
+                    selected = uiState.engineId == EngineId.EDGE,
+                    onClick = { viewModel.setEngine(EngineId.EDGE) },
+                    testTag = "engine_chip_edge",
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
 
         // Voice Controls Card

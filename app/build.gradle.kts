@@ -32,6 +32,23 @@ android {
     }
   }
 
+  flavorDimensions += "store"
+  productFlavors {
+    // Google Play: the voices arrive through the install-time asset pack.
+    create("google") {
+      dimension = "store"
+      buildConfigField("boolean", "ONLINE_VOICES", "true")
+    }
+    // AppGallery and the Chinese Android stores install plain APKs, which never contain asset
+    // packs, so the voices are packed into the APK itself (see sourceSets). Ship this flavor with
+    // assembleHuaweiRelease, not bundleHuaweiRelease. The unofficial Edge endpoint is off here: it
+    // sends book text abroad, which Chinese store review and PIPL treat as a cross-border transfer.
+    create("huawei") {
+      dimension = "store"
+      buildConfigField("boolean", "ONLINE_VOICES", "false")
+    }
+  }
+
   signingConfigs {
     if (!keystoreProps.isEmpty) {
       create("release") {
@@ -88,6 +105,9 @@ android {
   }
   sourceSets {
     getByName("debug") {
+      assets.srcDir(rootProject.file("offlinevoices/src/main/assets"))
+    }
+    getByName("huawei") {
       assets.srcDir(rootProject.file("offlinevoices/src/main/assets"))
     }
     getByName("androidTest") {

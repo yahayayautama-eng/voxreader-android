@@ -5,7 +5,9 @@ object TtsTextParser {
         if (text.isBlank()) return emptyList()
         return text
             .replace(Regex("[\\u0000-\\u001F&&[^\\n\\r\\t]]"), " ")
-            .split(Regex("(?<=[.!?])\\s+"))
+            // Chinese and Japanese end sentences with full-width marks and no following space, so
+            // those split right after the mark (and any closing quote) instead of on whitespace.
+            .split(Regex("(?<=[.!?])\\s+|(?<=[。！？][」』”]?)(?![」』”])"))
             .flatMap(::splitLongSentence)
             .filter(String::isNotBlank)
     }

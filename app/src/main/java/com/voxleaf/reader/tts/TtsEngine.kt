@@ -1,5 +1,6 @@
 package com.voxleaf.reader.tts
 
+import com.voxleaf.reader.BuildConfig
 import java.io.File
 
 /** One voice a [TtsEngine] can speak with. */
@@ -32,6 +33,8 @@ enum class EngineId(val storageKey: String) {
     EDGE("edge");
 
     companion object {
-        fun fromStorageKey(key: String?): EngineId = entries.firstOrNull { it.storageKey == key } ?: OFFLINE
+        // A saved "edge" choice falls back to offline on builds that ship without online voices.
+        fun fromStorageKey(key: String?): EngineId =
+            entries.firstOrNull { it.storageKey == key && (it == OFFLINE || BuildConfig.ONLINE_VOICES) } ?: OFFLINE
     }
 }

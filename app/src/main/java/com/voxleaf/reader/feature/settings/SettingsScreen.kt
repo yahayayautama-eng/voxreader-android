@@ -432,7 +432,11 @@ fun SettingsScreen(
             SettingsGroup {
                 SettingsClickableItem(
                     title = "Voice and speed",
-                    subtitle = "Offline neural voices, Edge TTS online voices, and reading speed",
+                    subtitle = if (BuildConfig.ONLINE_VOICES) {
+                        "Offline neural voices, Edge TTS online voices, and reading speed"
+                    } else {
+                        "Offline neural voices and reading speed"
+                    },
                     icon = Icons.Outlined.RecordVoiceOver,
                     iconColor = MaterialTheme.colorScheme.primary,
                     onClick = onNavigateToVoiceSelection,
@@ -594,7 +598,11 @@ private fun PrivacyCard() {
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Documents are always parsed on-device. Voicing them stays fully offline too, unless you opt into the Edge TTS online voice in Voice settings — that sends the text being read to Microsoft. Vox Reader has no account of its own either way.",
+                    text = if (BuildConfig.ONLINE_VOICES) {
+                        "Documents are always parsed on-device. Voicing them stays fully offline too, unless you opt into the Edge TTS online voice in Voice settings — that sends the text being read to Microsoft. Vox Reader has no account of its own either way."
+                    } else {
+                        "Documents are always parsed and voiced on-device. No text leaves this device, and Vox Reader has no account of its own."
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     lineHeight = 19.sp
