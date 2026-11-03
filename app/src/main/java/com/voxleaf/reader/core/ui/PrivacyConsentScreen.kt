@@ -1,6 +1,9 @@
 package com.voxleaf.reader.core.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,6 +33,8 @@ fun PrivacyConsentScreen(onAgree: () -> Unit, onDecline: () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                // The activity draws edge to edge, so keep clear of the status and navigation bars.
+                .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(horizontal = 24.dp, vertical = 32.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
