@@ -204,7 +204,8 @@ class SherpaTtsEngine @Inject constructor(
     internal data class Route(val model: VoiceModel, val speakerId: Int)
 
     companion object {
-        const val MODEL_VERSION = "piper-libritts-r-medium-int8-2"
+        // Bumped when the extracted files change: -3 replaces copies whose tokens.txt had CRLF endings.
+        const val MODEL_VERSION = "piper-libritts-r-medium-int8-3"
         private const val ASSET_ROOT = "sherpa"
         private const val KOKORO_DIR = "kokoro"
         private const val KOKORO_ASSETS = "$ASSET_ROOT/$KOKORO_DIR"

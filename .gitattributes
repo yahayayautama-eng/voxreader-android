@@ -1,1 +1,4 @@
 *.sh text eol=lf
+# Voice model data is read byte-for-byte by sherpa-onnx and espeak-ng. A CRLF checkout
+# (core.autocrlf=true on Windows) puts "\r" into tokens.txt, and sherpa-onnx exits on load.
+offlinevoices/src/main/assets/** -text
