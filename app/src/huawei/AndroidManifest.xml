@@ -6,4 +6,12 @@
          permissions makes that true for the store listing and the privacy policy. -->
     <uses-permission android:name="android.permission.INTERNET" tools:node="remove" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
+    <!-- In-App Purchases run inside the HMS Core app, which does the networking, so the
+         permissions above stay removed. -->
+
+    <application>
+        <meta-data
+            android:name="com.huawei.hms.client.appid"
+            android:value="appid=${hmsAppId}" />
+    </application>
 </manifest>

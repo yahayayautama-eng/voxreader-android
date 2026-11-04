@@ -1,4 +1,5 @@
 [versions]
+hmsIap = "6.13.0.300"
 hilt = "2.60.1"
 hiltNavigationCompose = "1.2.0"
 serialization = "1.7.3"
@@ -30,6 +31,7 @@ workManager = "2.10.1"
 
 
 [libraries]
+hms-iap = { module = "com.huawei.hms:iap", version.ref = "hmsIap" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }

@@ -40,7 +40,7 @@ android {
       dimension = "store"
       buildConfigField("boolean", "ONLINE_VOICES", "true")
       buildConfigField("boolean", "REQUIRE_PRIVACY_CONSENT", "false")
-      buildConfigField("int", "WEEKLY_LISTEN_LIMIT_SECONDS", "0")
+      buildConfigField("int", "DAILY_LISTEN_LIMIT_SECONDS", "0")
     }
     // AppGallery and the Chinese Android stores install plain APKs, which never contain asset
     // packs, so the voices are packed into the APK itself (see sourceSets). Ship this flavor with
@@ -50,8 +50,12 @@ android {
       dimension = "store"
       buildConfigField("boolean", "ONLINE_VOICES", "false")
       buildConfigField("boolean", "REQUIRE_PRIVACY_CONSENT", "true")
-      // Free tier: 3 hours of listening per calendar week (Monday to Sunday). 0 means no limit.
-      buildConfigField("int", "WEEKLY_LISTEN_LIMIT_SECONDS", "10800")
+      // Free tier: 1 hour of listening per local calendar day; the Pro unlock (HMS IAP) removes it.
+      // 0 means no limit.
+      buildConfigField("int", "DAILY_LISTEN_LIMIT_SECONDS", "3600")
+      // HMS reads the AppGallery app ID from the manifest instead of agconnect-services.json.
+      // Set hmsAppId in ~/.gradle/gradle.properties or with -PhmsAppId=...
+      manifestPlaceholders["hmsAppId"] = (project.findProperty("hmsAppId") as String?).orEmpty()
     }
   }
 
@@ -128,6 +132,7 @@ ksp {
 }
 
 dependencies {
+  "huaweiImplementation"(libs.hms.iap)
   implementation(platform(libs.androidx.compose.bom))
   implementation(libs.androidx.activity.compose)
   implementation(libs.androidx.compose.material.icons.core)

@@ -1,5 +1,11 @@
 package com.voxleaf.reader.feature.settings
 
+import com.voxleaf.reader.billing.ProStore
+import com.voxleaf.reader.billing.rememberProPurchase
+import androidx.compose.material.icons.outlined.Star
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.flow.first
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -100,7 +106,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settings: AppSettingsManager,
-    private val backupManager: LibraryBackupManager
+    private val backupManager: LibraryBackupManager,
+    val proStore: ProStore
 ) : ViewModel() {
 
     val autoPlay: StateFlow<Boolean> = settings.autoPlayFlow
@@ -560,6 +567,46 @@ fun SettingsScreen(
                     onClick = { sendFeedback(context) },
                     testTag = "settings_feedback_item"
                 )
+                if (BuildConfig.DAILY_LISTEN_LIMIT_SECONDS > 0) {
+                    val isPro by viewModel.proStore.isPro.collectAsStateWithLifecycle(initialValue = false)
+                    val price by viewModel.proStore.price.collectAsStateWithLifecycle()
+                    val purchasePro = rememberProPurchase(viewModel.proStore)
+                    val proScope = rememberCoroutineScope()
+                    GroupDivider()
+                    SettingsClickableItem(
+                        title = stringResource(R.string.st_pro_title),
+                        subtitle = when {
+                            isPro -> stringResource(R.string.st_pro_owned)
+                            price != null -> stringResource(R.string.st_pro_offer_price, price.orEmpty())
+                            else -> stringResource(R.string.st_pro_offer)
+                        },
+                        icon = Icons.Outlined.Star,
+                        iconColor = MaterialTheme.colorScheme.primary,
+                        onClick = { if (!isPro) purchasePro() },
+                        testTag = "settings_pro_item"
+                    )
+                    if (!isPro) {
+                        GroupDivider()
+                        SettingsClickableItem(
+                            title = stringResource(R.string.st_pro_restore),
+                            subtitle = stringResource(R.string.st_pro_restore_subtitle),
+                            icon = Icons.Outlined.Refresh,
+                            iconColor = MaterialTheme.colorScheme.primary,
+                            onClick = {
+                                proScope.launch {
+                                    viewModel.proStore.refresh()
+                                    val restored = viewModel.proStore.isPro.first()
+                                    Toast.makeText(
+                                        context,
+                                        if (restored) R.string.st_pro_restored else R.string.st_pro_not_found,
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            },
+                            testTag = "settings_pro_restore_item"
+                        )
+                    }
+                }
             }
             Spacer(modifier = Modifier.height(32.dp))
         }

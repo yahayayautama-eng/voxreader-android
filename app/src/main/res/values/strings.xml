@@ -397,8 +397,8 @@
     <string name="pb_stop">Stop</string>
     <string name="pb_sentence_of">%1$s · sentence %2$d of %3$d</string>
     <string name="pb_preparing_audio">Preparing offline audio…</string>
-    <string name="limit_title">Weekly listening limit reached</string>
-    <string name="limit_body">The free version reads aloud for %1$d hours each week. Your listening time resets on Monday. You can still read your books on screen.</string>
+    <string name="limit_title">Daily listening limit reached</string>
+    <string name="limit_body">The free version reads aloud for %1$d minutes each day, and the time resets at midnight. Unlock Pro once for unlimited listening, or keep reading on screen.</string>
     <string name="import_unknown_author">Unknown Author</string>
     <string name="import_default_genre">General</string>
     <string name="import_section_page">Page %1$d</string>
@@ -469,4 +469,16 @@
         <item quantity="one">Backup restored · %1$d document</item>
         <item quantity="other">Backup restored · %1$d documents</item>
     </plurals>
+    <string name="pro_unlock">Unlock Pro</string>
+    <string name="pro_unlock_price">Unlock Pro · %1$s</string>
+    <string name="pro_not_now">Not now</string>
+    <string name="pro_unavailable">Purchases need HMS Core and a signed-in HUAWEI ID.</string>
+    <string name="st_pro_title">Vox Pro</string>
+    <string name="st_pro_offer">Unlimited listening, one-time purchase</string>
+    <string name="st_pro_offer_price">Unlimited listening, one-time purchase · %1$s</string>
+    <string name="st_pro_owned">Unlocked. Thank you for your support!</string>
+    <string name="st_pro_restore">Restore purchase</string>
+    <string name="st_pro_restore_subtitle">Bought Pro before with this HUAWEI ID? Check again.</string>
+    <string name="st_pro_restored">Pro restored</string>
+    <string name="st_pro_not_found">No Pro purchase found for this HUAWEI ID</string>
 </resources>

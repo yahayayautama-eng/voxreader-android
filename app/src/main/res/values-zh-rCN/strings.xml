@@ -386,8 +386,8 @@
     <string name="pb_stop">停止</string>
     <string name="pb_sentence_of">%1$s · 第 %2$d 句，共 %3$d 句</string>
     <string name="pb_preparing_audio">正在准备离线音频…</string>
-    <string name="limit_title">本周免费收听时长已用完</string>
-    <string name="limit_body">免费版每周可朗读 %1$d 小时，收听时长将于周一重置。您仍可以在屏幕上阅读书籍。</string>
+    <string name="limit_title">今日免费收听时长已用完</string>
+    <string name="limit_body">免费版每天可朗读 %1$d 分钟，时长将于午夜重置。一次性解锁 Pro 即可无限收听，您也可以继续在屏幕上阅读。</string>
     <string name="import_unknown_author">未知作者</string>
     <string name="import_default_genre">综合</string>
     <string name="import_section_page">第 %1$d 页</string>
@@ -455,4 +455,16 @@
     <plurals name="backup_restored">
         <item quantity="other">备份已恢复 · %1$d 个文档</item>
     </plurals>
+    <string name="pro_unlock">解锁 Pro</string>
+    <string name="pro_unlock_price">解锁 Pro · %1$s</string>
+    <string name="pro_not_now">以后再说</string>
+    <string name="pro_unavailable">购买需要 HMS Core 并登录华为帐号。</string>
+    <string name="st_pro_title">Vox Pro</string>
+    <string name="st_pro_offer">无限收听，一次性购买</string>
+    <string name="st_pro_offer_price">无限收听，一次性购买 · %1$s</string>
+    <string name="st_pro_owned">已解锁，感谢您的支持！</string>
+    <string name="st_pro_restore">恢复购买</string>
+    <string name="st_pro_restore_subtitle">以前用此华为帐号购买过 Pro？重新检查。</string>
+    <string name="st_pro_restored">Pro 已恢复</string>
+    <string name="st_pro_not_found">此华为帐号没有 Pro 购买记录</string>
 </resources>

@@ -13,7 +13,8 @@ Nothing. Vox Reader has no account, no analytics, no crash reporting and no ads.
 ## What stays on your device
 
 - Your imported books and documents
-- Bookmarks, reading position and listening statistics. The weekly free listening allowance is counted from these statistics, on your device.
+- Bookmarks, reading position and listening statistics. The daily free listening allowance is counted from these statistics, on your device.
+- Whether you have unlocked Vox Pro
 - Your settings, such as theme, voice and speed
 
 All of this is stored in the app's private storage on your device. Removing a book deletes its copy from the app. Uninstalling the app deletes everything.
@@ -37,9 +38,10 @@ Vox Reader does not ask for access to your contacts, location, camera, microphon
 | Component | What it does | Data sent |
 | --- | --- | --- |
 | sherpa-onnx | Speaks text aloud, using a voice model stored inside the app | None. It runs on the device. |
+| HUAWEI In-App Purchases (HMS Core) | Sells and restores the one-time Vox Pro unlock | Only when you buy or restore Pro: the purchase goes through the HMS Core app on your phone, which contacts Huawei. Vox Reader itself has no internet access and receives only the purchase record. Huawei handles payment under its own privacy statement. |
 | Google ML Kit text recognition | Reads text from scanned pages. The recognition model is stored inside the app. | None. It runs on the device. |
 
-If an advertising or purchase service is added in a later version, this policy will be updated first and will name the service, the data it collects and the reason.
+If an advertising service, or any other service, is added in a later version, this policy will be updated first and will name the service, the data it collects and the reason.
 
 ## Children
 

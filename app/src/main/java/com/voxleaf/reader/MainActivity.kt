@@ -1,5 +1,7 @@
 package com.voxleaf.reader
 
+import com.voxleaf.reader.billing.ProStore
+import com.voxleaf.reader.billing.rememberProPurchase
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -40,6 +42,9 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var listeningTracker: ListeningTracker
 
+    @Inject
+    lateinit var proStore: ProStore
+
     private val incomingDocumentUris = MutableStateFlow<List<String>>(emptyList())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -56,6 +61,8 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+        // Reconcile the cached Pro state with the store; harmless when it can't be reached.
+        lifecycleScope.launch { proStore.refresh() }
         enableEdgeToEdge()
         setContent {
             // The stored preference is three-state: an explicit LIGHT/DARK choice, or SYSTEM,
@@ -86,17 +93,30 @@ class MainActivity : ComponentActivity() {
                         }
                     )
                 }
-                val weeklyLimitReached by listeningTracker.weeklyLimitReached.collectAsStateWithLifecycle()
-                if (weeklyLimitReached) {
+                val limitReached by listeningTracker.limitReached.collectAsStateWithLifecycle()
+                if (limitReached) {
+                    val price by proStore.price.collectAsStateWithLifecycle()
+                    val purchasePro = rememberProPurchase(proStore)
                     AlertDialog(
-                        onDismissRequest = listeningTracker::dismissWeeklyLimit,
+                        onDismissRequest = listeningTracker::dismissLimit,
                         title = { Text(stringResource(R.string.limit_title)) },
                         text = {
-                            Text(stringResource(R.string.limit_body, BuildConfig.WEEKLY_LISTEN_LIMIT_SECONDS / 3600))
+                            Text(stringResource(R.string.limit_body, BuildConfig.DAILY_LISTEN_LIMIT_SECONDS / 60))
                         },
                         confirmButton = {
-                            TextButton(onClick = listeningTracker::dismissWeeklyLimit) {
-                                Text(stringResource(android.R.string.ok))
+                            TextButton(onClick = {
+                                listeningTracker.dismissLimit()
+                                purchasePro()
+                            }) {
+                                Text(
+                                    price?.let { stringResource(R.string.pro_unlock_price, it) }
+                                        ?: stringResource(R.string.pro_unlock)
+                                )
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = listeningTracker::dismissLimit) {
+                                Text(stringResource(R.string.pro_not_now))
                             }
                         }
                     )

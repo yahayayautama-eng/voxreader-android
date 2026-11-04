@@ -386,8 +386,8 @@
     <string name="pb_stop">停止</string>
     <string name="pb_sentence_of">%1$s · 第 %2$d 句，共 %3$d 句</string>
     <string name="pb_preparing_audio">正在準備離線音頻…</string>
-    <string name="limit_title">本週免費收聽時數已用完</string>
-    <string name="limit_body">免費版每週可朗讀 %1$d 小時，收聽時數將於週一重設。您仍可以在螢幕上閱讀書籍。</string>
+    <string name="limit_title">今日免費收聽時數已用完</string>
+    <string name="limit_body">免費版每天可朗讀 %1$d 分鐘，時數將於午夜重設。一次性解鎖 Pro 即可無限收聽，您也可以繼續在螢幕上閱讀。</string>
     <string name="import_unknown_author">未知作者</string>
     <string name="import_default_genre">綜合</string>
     <string name="import_section_page">第 %1$d 頁</string>
@@ -455,4 +455,16 @@
     <plurals name="backup_restored">
         <item quantity="other">備份已還原 · %1$d 個文件</item>
     </plurals>
+    <string name="pro_unlock">解鎖 Pro</string>
+    <string name="pro_unlock_price">解鎖 Pro · %1$s</string>
+    <string name="pro_not_now">以後再說</string>
+    <string name="pro_unavailable">購買需要 HMS Core 並登入華為帳號。</string>
+    <string name="st_pro_title">Vox Pro</string>
+    <string name="st_pro_offer">無限收聽，一次性購買</string>
+    <string name="st_pro_offer_price">無限收聽，一次性購買 · %1$s</string>
+    <string name="st_pro_owned">已解鎖，感謝您的支持！</string>
+    <string name="st_pro_restore">恢復購買</string>
+    <string name="st_pro_restore_subtitle">以前用此華為帳號購買過 Pro？重新檢查。</string>
+    <string name="st_pro_restored">Pro 已恢復</string>
+    <string name="st_pro_not_found">此華為帳號沒有 Pro 購買記錄</string>
 </resources>

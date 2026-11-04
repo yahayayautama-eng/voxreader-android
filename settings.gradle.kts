@@ -20,6 +20,10 @@ dependencyResolutionManagement {
   repositories {
     google()
     mavenCentral()
+    // HMS In-App Purchases for the huawei flavor.
+    maven("https://developer.huawei.com/repo/") {
+      content { includeGroupByRegex("com\\.huawei.*") }
+    }
   }
 }
 

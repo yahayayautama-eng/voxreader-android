@@ -1,10 +1,9 @@
 package com.voxleaf.reader.tts
 
 import com.voxleaf.reader.BuildConfig
+import com.voxleaf.reader.billing.ProStore
 import com.voxleaf.reader.domain.repository.BookRepository
-import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.temporal.TemporalAdjusters
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -14,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -31,7 +31,8 @@ import javax.inject.Singleton
  * ponytail: fixed [TICK_SECONDS] ticks, so up to one tick of the final partial interval is lost.
  * Move to timestamp deltas if per-second accuracy ever matters.
  *
- * Also enforces the free tier's weekly listening limit ([BuildConfig.WEEKLY_LISTEN_LIMIT_SECONDS]):
+ * Also enforces the free tier's daily listening limit ([BuildConfig.DAILY_LISTEN_LIMIT_SECONDS],
+ * lifted by [ProStore]):
  * every route into playback (reader, player bar, notification, headset) ends in [TtsManager]
  * speaking, so pausing here covers them all without a check at each call site.
  * ponytail: the total comes from the local stats table, so clearing app data resets it. Move it
@@ -40,17 +41,18 @@ import javax.inject.Singleton
 @Singleton
 class ListeningTracker @Inject constructor(
     private val ttsManager: TtsManager,
-    private val bookRepository: BookRepository
+    private val bookRepository: BookRepository,
+    private val proStore: ProStore
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @Volatile
     private var currentBookId: String? = null
 
-    private val _weeklyLimitReached = MutableStateFlow(false)
+    private val _limitReached = MutableStateFlow(false)
 
-    /** True after playback was stopped by the weekly limit, until [dismissWeeklyLimit]. */
-    val weeklyLimitReached: StateFlow<Boolean> = _weeklyLimitReached.asStateFlow()
+    /** True after playback was stopped by the daily limit, until [dismissLimit]. */
+    val limitReached: StateFlow<Boolean> = _limitReached.asStateFlow()
 
     init {
         scope.launch {
@@ -59,16 +61,16 @@ class ListeningTracker @Inject constructor(
                 val bookId = currentBookId ?: continue
                 if (ttsManager.state.value.isSpeaking) {
                     bookRepository.recordListening(bookId, TICK_SECONDS)
-                    enforceWeeklyLimit()
+                    enforceLimit()
                 }
             }
         }
-        if (BuildConfig.WEEKLY_LISTEN_LIMIT_SECONDS > 0) {
+        if (BuildConfig.DAILY_LISTEN_LIMIT_SECONDS > 0) {
             scope.launch {
                 ttsManager.state.map { it.isSpeaking || it.isPreparing }
                     .distinctUntilChanged()
                     .filter { it }
-                    .collect { enforceWeeklyLimit() }
+                    .collect { enforceLimit() }
             }
         }
     }
@@ -77,24 +79,20 @@ class ListeningTracker @Inject constructor(
         currentBookId = bookId
     }
 
-    fun dismissWeeklyLimit() {
-        _weeklyLimitReached.value = false
+    fun dismissLimit() {
+        _limitReached.value = false
     }
 
-    private suspend fun enforceWeeklyLimit() {
-        val limit = BuildConfig.WEEKLY_LISTEN_LIMIT_SECONDS
-        if (limit <= 0) return
-        if (bookRepository.getListeningSecondsSince(weekStart(LocalDate.now())) < limit) return
+    private suspend fun enforceLimit() {
+        val limit = BuildConfig.DAILY_LISTEN_LIMIT_SECONDS
+        if (limit <= 0 || proStore.isPro.first()) return
+        if (bookRepository.getListeningSecondsSince(LocalDate.now()) < limit) return
         withContext(Dispatchers.Main) { ttsManager.pause() }
-        _weeklyLimitReached.value = true
+        _limitReached.value = true
     }
 
-    companion object {
+    private companion object {
         // Short enough that quitting mid-tick loses little, long enough to keep DB writes rare.
-        private const val TICK_SECONDS = 15
-
-        /** The free allowance resets every Monday, local time. */
-        internal fun weekStart(today: LocalDate): LocalDate =
-            today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+        const val TICK_SECONDS = 15
     }
 }
