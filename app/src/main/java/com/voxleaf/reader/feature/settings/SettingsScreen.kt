@@ -25,6 +25,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.widget.Toast
+import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Insights
 import androidx.compose.material.icons.outlined.Lock
@@ -52,6 +59,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
@@ -532,6 +540,16 @@ fun SettingsScreen(
                     onClick = onNavigateToAbout,
                     testTag = "settings_about_item"
                 )
+                GroupDivider()
+                val context = LocalContext.current
+                SettingsClickableItem(
+                    title = stringResource(R.string.st_feedback),
+                    subtitle = stringResource(R.string.st_feedback_subtitle),
+                    icon = Icons.Outlined.Email,
+                    iconColor = MaterialTheme.colorScheme.primary,
+                    onClick = { sendFeedback(context) },
+                    testTag = "settings_feedback_item"
+                )
             }
             Spacer(modifier = Modifier.height(32.dp))
         }
@@ -555,6 +573,26 @@ fun SettingsScreen(
         }
     }
 }
+
+/**
+ * Hands feedback to the user's email app, so the app itself still needs no network permission and
+ * nothing leaves the device unless the user sends it. Version and device go in the body because
+ * there is no crash reporting to supply them.
+ */
+private fun sendFeedback(context: Context) {
+    val body = "\n\n—\nVox Reader ${BuildConfig.VERSION_NAME} (${BuildConfig.FLAVOR})\n" +
+        "Android ${Build.VERSION.RELEASE}, ${Build.MANUFACTURER} ${Build.MODEL}"
+    val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$FEEDBACK_EMAIL"))
+        .putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.st_feedback_subject))
+        .putExtra(Intent.EXTRA_TEXT, body)
+    try {
+        context.startActivity(intent)
+    } catch (_: ActivityNotFoundException) {
+        Toast.makeText(context, context.getString(R.string.st_feedback_no_app, FEEDBACK_EMAIL), Toast.LENGTH_LONG).show()
+    }
+}
+
+private const val FEEDBACK_EMAIL = "hello@tendercrafthq.com"
 
 private fun formatStorageBytes(bytes: Long): String = when {
     bytes >= 1024L * 1024L * 1024L -> "%.1f GB".format(bytes / (1024f * 1024f * 1024f))

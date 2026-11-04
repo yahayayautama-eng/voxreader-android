@@ -1,5 +1,6 @@
 package com.voxleaf.reader.tts
 
+import android.app.ActivityManager
 import android.content.Context
 import android.util.Log
 import com.k2fsa.sherpa.onnx.OfflineTts
@@ -49,6 +50,17 @@ class SherpaTtsEngine @Inject constructor(
         context.assets.list("$ASSET_ROOT/$KOKORO_DIR").orEmpty().contains(MODEL)
     }
 
+    /**
+     * Kokoro needs about 700 MB while it speaks, enough to get the app killed on a small phone. Those
+     * phones keep the light Piper voices in the picker; Chinese text still tries Kokoro, because it
+     * is the only model that can read it at all.
+     */
+    private val kokoroFitsDevice: Boolean by lazy {
+        val activityManager = context.getSystemService(ActivityManager::class.java)
+        val memory = ActivityManager.MemoryInfo().also(activityManager::getMemoryInfo)
+        !activityManager.isLowRamDevice && memory.totalMem >= MIN_KOKORO_RAM_BYTES
+    }
+
     override suspend fun listVoices(): List<EngineVoice> = withContext(Dispatchers.IO) {
         // The Piper model carries hundreds of speakers. Surfacing all of them would be a wall of
         // numbers with no way to tell them apart, so the picker offers a curated set of named presets
@@ -63,7 +75,7 @@ class SherpaTtsEngine @Inject constructor(
                 )
             }
         // Kokoro is listed without loading it: its 160 MB model should load only when it speaks.
-        val kokoro = if (hasKokoro) {
+        val kokoro = if (hasKokoro && kokoroFitsDevice) {
             KOKORO_PRESETS.map { EngineVoice(id = kokoroVoiceId(it.speakerId), displayName = it.displayName, locale = it.locale) }
         } else {
             emptyList()
@@ -80,8 +92,9 @@ class SherpaTtsEngine @Inject constructor(
         val engine = ensureInitialized(route.model) ?: return null
         outputDir.mkdirs()
         val output = File(outputDir, "audio-${System.nanoTime()}.wav")
+        val spoken = if (route.model == VoiceModel.KOKORO) kokoroText(text) else text
         return try {
-            val audio = engine.generate(text, route.speakerId, speed.coerceIn(MIN_SPEED, MAX_SPEED))
+            val audio = engine.generate(spoken, route.speakerId, speed.coerceIn(MIN_SPEED, MAX_SPEED))
             // save() writes a RIFF/WAV file, which is what MediaPlayer expects.
             if (audio.save(output.absolutePath) && output.length() > WAV_HEADER_BYTES) {
                 output
@@ -210,6 +223,7 @@ class SherpaTtsEngine @Inject constructor(
         private const val MIN_SPEED = 0.5f
         private const val MAX_SPEED = 2f
         private const val DEFAULT_SPEAKER_ID = 79
+        private const val MIN_KOKORO_RAM_BYTES = 3L * 1024 * 1024 * 1024
 
         /** Kokoro v1.1 speaker ids: 0–2 English female, 3–57 Chinese female, 58–102 Chinese male. */
         private const val FIRST_CHINESE_SPEAKER = 3
@@ -252,6 +266,25 @@ class SherpaTtsEngine @Inject constructor(
                 else -> Route(VoiceModel.PIPER, voiceId.substringAfterLast(':', "").toIntOrNull() ?: DEFAULT_SPEAKER_ID)
             }
         }
+
+        /** The voice that actually speaks [text], which differs from the chosen one for Chinese text. */
+        fun spokenVoiceId(text: String, voiceId: String): String = route(text, voiceId).let {
+            if (it.model == VoiceModel.KOKORO) kokoroVoiceId(it.speakerId) else voiceId(it.speakerId)
+        }
+
+        /**
+         * Kokoro's token table holds only ASCII punctuation, so full-width Chinese marks reach it as
+         * unknown tokens and lose their pause. They are swapped for the ASCII mark with the same pause.
+         */
+        internal fun kokoroText(text: String): String = buildString(text.length) {
+            text.forEach { char -> append(KOKORO_PUNCTUATION[char] ?: char) }
+        }
+
+        private val KOKORO_PUNCTUATION = mapOf(
+            '，' to ',', '、' to ',', '。' to '.', '！' to '!', '？' to '?', '：' to ':', '；' to ';',
+            '（' to '(', '）' to ')', '「' to '“', '」' to '”', '『' to '“', '』' to '”',
+            '《' to '“', '》' to '”', '【' to '(', '】' to ')', '～' to '—'
+        )
 
         private fun isHan(char: Char): Boolean =
             Character.UnicodeScript.of(char.code) == Character.UnicodeScript.HAN

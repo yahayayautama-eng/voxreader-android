@@ -169,21 +169,25 @@ class PlaybackService : Service() {
             .setContentTitle(state.nowPlaying?.bookTitle ?: "Vox Reader")
             .setContentText(
                 when {
-                    state.nowPlaying != null && state.totalSentences > 0 ->
-                        "${state.nowPlaying.chapterTitle} · sentence ${state.currentSentenceIndex + 1} of ${state.totalSentences}"
+                    state.nowPlaying != null && state.totalSentences > 0 -> getString(
+                        R.string.pb_sentence_of,
+                        state.nowPlaying.chapterTitle,
+                        state.currentSentenceIndex + 1,
+                        state.totalSentences
+                    )
                     state.nowPlaying != null -> state.nowPlaying.chapterTitle
-                    else -> "Preparing offline audio…"
+                    else -> getString(R.string.pb_preparing_audio)
                 }
             )
             .setContentIntent(contentIntent)
             .setOngoing(state.isSpeaking || state.isPreparing)
-            .addAction(action(android.R.drawable.ic_media_previous, "Previous", ACTION_PREV))
+            .addAction(action(android.R.drawable.ic_media_previous, getString(R.string.pb_previous), ACTION_PREV))
             .addAction(
-                if (state.isSpeaking || state.isPreparing) action(android.R.drawable.ic_media_pause, "Pause", ACTION_TOGGLE)
-                else action(android.R.drawable.ic_media_play, "Play", ACTION_TOGGLE)
+                if (state.isSpeaking || state.isPreparing) action(android.R.drawable.ic_media_pause, getString(R.string.pb_pause), ACTION_TOGGLE)
+                else action(android.R.drawable.ic_media_play, getString(R.string.pb_play), ACTION_TOGGLE)
             )
-            .addAction(action(android.R.drawable.ic_media_next, "Next", ACTION_NEXT))
-            .addAction(action(android.R.drawable.ic_menu_close_clear_cancel, "Stop", ACTION_STOP))
+            .addAction(action(android.R.drawable.ic_media_next, getString(R.string.pb_next), ACTION_NEXT))
+            .addAction(action(android.R.drawable.ic_menu_close_clear_cancel, getString(R.string.pb_stop), ACTION_STOP))
             .setStyle(
                 Notification.MediaStyle()
                     .setMediaSession(mediaSession.sessionToken)

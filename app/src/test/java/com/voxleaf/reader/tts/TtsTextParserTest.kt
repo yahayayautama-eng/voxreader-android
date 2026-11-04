@@ -16,4 +16,12 @@ class TtsTextParserTest {
             TtsTextParser.sentences("今天下雨了。他说：「我们走吧！」好吗？")
         )
     }
+
+    @Test
+    fun `running text joins chinese sentences without a space and english ones with one`() {
+        assertEquals("", TtsTextParser.separatorAfter("他说：「我们走吧！」"))
+        assertEquals("", TtsTextParser.separatorAfter("今天下雨了。"))
+        assertEquals(" ", TtsTextParser.separatorAfter("He said “go.”"))
+        assertEquals(" ", TtsTextParser.separatorAfter("One."))
+    }
 }

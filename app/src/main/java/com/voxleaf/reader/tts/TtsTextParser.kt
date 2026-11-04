@@ -12,6 +12,17 @@ object TtsTextParser {
             .filter(String::isNotBlank)
     }
 
+    /**
+     * What goes between [previous] and the next sentence when they are shown as running text:
+     * a space after English, nothing after Chinese, which never puts spaces between sentences.
+     */
+    fun separatorAfter(previous: String): String {
+        val last = previous.trimEnd('”', '」', '』').lastOrNull() ?: return " "
+        val cjk = Character.UnicodeScript.of(last.code) == Character.UnicodeScript.HAN ||
+            last in '　'..'〿' || last in '＀'..'￯'
+        return if (cjk) "" else " "
+    }
+
     private fun splitLongSentence(sentence: String): List<String> {
         val normalized = sentence.replace(Regex("\\s+"), " ").trim()
         if (normalized.length <= MAX_TTS_CHARS) return listOf(normalized)

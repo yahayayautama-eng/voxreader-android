@@ -3,7 +3,7 @@
 Updated: 2026-08-18  
 Repository: `C:\Users\Yayis\Desktop\CODEX\Android studio\voxleaf`  
 Branch: `main`  
-Package: `com.aistudio.voxreader.xyz.debug`  
+Package: `com.tendercrafthq.voxreader.debug`  
 Connected Test Device: `b6f2151b` (Android Device)
 
 ---
@@ -84,7 +84,7 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 
 ### B. Device Installation & Deployment
 - **Target Device**: `b6f2151b`
-- **Application ID**: `com.aistudio.voxreader.xyz.debug`
+- **Application ID**: `com.tendercrafthq.voxreader.debug`
 - **Main Activity**: `com.voxleaf.reader.MainActivity`
 - **Status**: Installed and running live on device.
 
@@ -134,7 +134,7 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 .\gradlew.bat :app:installDebug --no-daemon
 
 # Launch App on Device
-adb shell am start -n com.aistudio.voxreader.xyz.debug/com.voxleaf.reader.MainActivity
+adb shell am start -n com.tendercrafthq.voxreader.debug/com.voxleaf.reader.MainActivity
 
 # Stream Device Logs
 adb logcat -v time -s VoxLeaf:V TtsManager:V ChapterDetector:V EpubParser:V PdfBookParser:V

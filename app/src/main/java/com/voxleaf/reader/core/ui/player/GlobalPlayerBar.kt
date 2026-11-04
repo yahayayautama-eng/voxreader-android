@@ -104,7 +104,7 @@ fun GlobalPlayerBar(
                     )
                     Text(
                         text = when {
-                            state.isPreparing -> "Preparing…"
+                            state.isPreparing -> stringResource(R.string.reader_preparing_playback)
                             state.errorMessage != null -> state.errorMessage.orEmpty()
                             else -> nowPlaying.chapterTitle
                         },

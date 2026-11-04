@@ -19,7 +19,8 @@ android {
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
-    applicationId = "com.aistudio.voxreader.xyz"
+    // Permanent once published to any store. Matches the tendercrafthq.com contact domain.
+    applicationId = "com.tendercrafthq.voxreader"
     minSdk = 26
     targetSdk = 36
     versionCode = 1

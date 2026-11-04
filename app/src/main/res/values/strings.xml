@@ -114,7 +114,7 @@
     <string name="about_backup_body">Vox Reader has no account or cloud sync. Use Data and storage in Settings to export a validated local backup you control.</string>
     <string name="about_fonts_title">Fonts and open-source notices</string>
     <string name="about_fonts_body">Interface: Inter. Reader: Source Serif 4 and Newsreader. Utility: JetBrains Mono. These fonts are bundled under their respective SIL Open Font Licenses.</string>
-    <string name="about_software_body">Vox Reader uses Android Jetpack, Kotlin, ML Kit text recognition, PDFBox Android, Bouncy Castle, OkHttp, and sherpa-onnx. Their notices and licences are distributed with their source packages and app distribution materials.</string>
+    <string name="about_software_body">Vox Reader uses Android Jetpack, Kotlin, ML Kit text recognition, PDFBox Android, Bouncy Castle, OkHttp, and sherpa-onnx, with the Kokoro speech model (Apache License 2.0). Their notices and licences are distributed with their source packages and app distribution materials.</string>
     <string name="library_sort">Sort</string>
     <string name="library_sort_description">Sort library, %1$s</string>
     <string name="library_sort_recent">Recent</string>
@@ -388,4 +388,13 @@
     <string name="pb_pause">Pause</string>
     <string name="pb_play">Play</string>
     <string name="ui_navigate_up">Navigate up</string>
+    <string name="st_feedback">Send feedback</string>
+    <string name="st_feedback_subtitle">Email the developer. The app never sends anything by itself.</string>
+    <string name="st_feedback_subject">Vox Reader feedback</string>
+    <string name="st_feedback_no_app">No email app found. Write to %1$s.</string>
+    <string name="pb_previous">Previous</string>
+    <string name="pb_next">Next</string>
+    <string name="pb_stop">Stop</string>
+    <string name="pb_sentence_of">%1$s · sentence %2$d of %3$d</string>
+    <string name="pb_preparing_audio">Preparing offline audio…</string>
 </resources>

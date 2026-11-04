@@ -104,6 +104,7 @@ import com.voxleaf.reader.core.ui.components.ErrorState
 import com.voxleaf.reader.core.ui.components.LoadingState
 import com.voxleaf.reader.domain.repository.Highlight
 import com.voxleaf.reader.tts.EngineId
+import com.voxleaf.reader.tts.TtsTextParser
 import com.voxleaf.reader.ui.theme.Carbon
 import com.voxleaf.reader.ui.theme.HighlightColor
 import com.voxleaf.reader.ui.theme.Canvas
@@ -866,7 +867,7 @@ private fun FlowingChapterText(
         var cursor = 0
         sentences.map { sentence ->
             val start = cursor
-            cursor += sentence.length + 1
+            cursor += sentence.length + TtsTextParser.separatorAfter(sentence).length
             start
         }
     }
@@ -889,7 +890,7 @@ private fun FlowingChapterText(
                         }
                     )
                 ) { append(sentence) }
-                if (index != sentences.lastIndex) append(" ")
+                if (index != sentences.lastIndex) append(TtsTextParser.separatorAfter(sentence))
             }
         }
     }
@@ -1091,8 +1092,16 @@ fun ReaderTtsBottomBar(
                     Spacer(modifier = Modifier.width(10.dp))
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Chinese sentences are read by a Kokoro voice whatever narrator is chosen, so the
+                    // label names the voice actually speaking the current sentence.
+                    val currentText = uiState.textChunks.getOrNull(uiState.currentSentenceIndex)?.text
+                    val spokenVoice = if (uiState.ttsEngineId == EngineId.OFFLINE && currentText != null) {
+                        com.voxleaf.reader.tts.SherpaTtsEngine.spokenVoiceId(currentText, uiState.ttsVoice)
+                    } else {
+                        uiState.ttsVoice
+                    }
                     val voiceName = uiState.availableVoices
-                        .firstOrNull { it.id == uiState.ttsVoice }
+                        .firstOrNull { it.id == spokenVoice }
                         ?.displayName
                         ?: stringResource(com.voxleaf.reader.R.string.reader_default_voice)
                     val availability = stringResource(

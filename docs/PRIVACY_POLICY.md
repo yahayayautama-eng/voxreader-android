@@ -2,7 +2,7 @@
 
 Last updated: 3 November 2026
 
-DRAFT: have this reviewed before you publish it. A Chinese translation is required for the mainland China release.
+DRAFT: have this reviewed before you publish it. The Chinese version is [PRIVACY_POLICY.zh-CN.md](PRIVACY_POLICY.zh-CN.md); keep the two in step.
 
 Vox Reader is an offline reader that speaks books and documents aloud. This policy applies to the Huawei AppGallery version.
 
@@ -29,6 +29,8 @@ All of this is stored in the app's private storage on your device. Removing a bo
 The Huawei version does not request internet access at all, so it cannot send anything off your device.
 
 Vox Reader does not ask for access to your contacts, location, camera, microphone or storage. You choose each file through the system file picker.
+
+**Send feedback** in Settings opens your own email app with the app version, Android version and phone model filled in. Nothing is sent unless you send that email yourself, and you can edit or delete any of it first.
 
 ## Third-party components
 

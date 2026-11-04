@@ -113,7 +113,7 @@
     <string name="about_backup_body">Vox Reader 没有账号，也没有云同步。您可以在“设置”的“数据与存储”中导出经过校验的本地备份，备份由您自己掌控。</string>
     <string name="about_fonts_title">字体与开源声明</string>
     <string name="about_fonts_body">界面：Inter。阅读：Source Serif 4 和 Newsreader。等宽：JetBrains Mono。这些字体均按各自的 SIL 开放字体许可证随应用提供。</string>
-    <string name="about_software_body">Vox Reader 使用 Android Jetpack、Kotlin、ML Kit 文字识别、PDFBox Android、Bouncy Castle、OkHttp 和 sherpa-onnx。它们的声明和许可证随各自的源码包及应用分发材料一并提供。</string>
+    <string name="about_software_body">Vox Reader 使用 Android Jetpack、Kotlin、ML Kit 文字识别、PDFBox Android、Bouncy Castle、OkHttp 和 sherpa-onnx，以及 Kokoro 语音模型（Apache License 2.0）。它们的声明和许可证随各自的源码包及应用分发材料一并提供。</string>
     <string name="library_sort">排序</string>
     <string name="library_sort_description">书库排序，当前为%1$s</string>
     <string name="library_sort_recent">最近</string>
@@ -377,4 +377,13 @@
     <string name="pb_pause">暂停</string>
     <string name="pb_play">播放</string>
     <string name="ui_navigate_up">返回上一级</string>
+    <string name="st_feedback">发送反馈</string>
+    <string name="st_feedback_subtitle">给开发者发邮件。应用本身不会发送任何内容。</string>
+    <string name="st_feedback_subject">Vox Reader 反馈</string>
+    <string name="st_feedback_no_app">未找到邮件应用，请发邮件至 %1$s。</string>
+    <string name="pb_previous">上一句</string>
+    <string name="pb_next">下一句</string>
+    <string name="pb_stop">停止</string>
+    <string name="pb_sentence_of">%1$s · 第 %2$d 句，共 %3$d 句</string>
+    <string name="pb_preparing_audio">正在准备离线音频…</string>
 </resources>
