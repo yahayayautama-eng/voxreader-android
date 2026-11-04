@@ -1,11 +1,14 @@
 package com.voxleaf.reader.feature.library
 
+import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.voxleaf.reader.R
 import com.voxleaf.reader.domain.repository.Book
 import com.voxleaf.reader.domain.repository.BookRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +21,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class LibraryViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val bookRepository: BookRepository,
     private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
@@ -130,7 +134,7 @@ class LibraryViewModel @Inject constructor(
                 }
             }
                 .catch { e ->
-                    _uiState.value = LibraryUiState.Error(e.message ?: "Failed to load books")
+                    _uiState.value = LibraryUiState.Error(context.getString(R.string.lib_error_load))
                 }
                 .collect { state ->
                     _uiState.value = state

@@ -56,7 +56,7 @@ class PlaybackService : Service() {
     override fun onCreate() {
         super.onCreate()
         notificationManager.createNotificationChannel(
-            NotificationChannel(CHANNEL_ID, "Playback", NotificationManager.IMPORTANCE_LOW)
+            NotificationChannel(CHANNEL_ID, getString(R.string.playback_channel_name), NotificationManager.IMPORTANCE_LOW)
         )
         mediaSession = MediaSession(this, "VoxLeafPlayback").apply {
             setCallback(object : MediaSession.Callback() {
@@ -102,7 +102,7 @@ class PlaybackService : Service() {
     private fun updateMediaSession(state: TtsState) {
         mediaSession.setMetadata(
             MediaMetadata.Builder()
-                .putString(MediaMetadata.METADATA_KEY_TITLE, state.nowPlaying?.chapterTitle ?: "Vox Reader")
+                .putString(MediaMetadata.METADATA_KEY_TITLE, state.nowPlaying?.chapterTitle ?: getString(R.string.app_name))
                 .putString(MediaMetadata.METADATA_KEY_ARTIST, state.nowPlaying?.bookTitle ?: "")
                 .putLong(MediaMetadata.METADATA_KEY_DURATION, state.estimatedDurationMs)
                 .apply {
@@ -166,7 +166,7 @@ class PlaybackService : Service() {
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .apply { coverBitmap(state.nowPlaying?.coverImagePath)?.let { setLargeIcon(it) } }
-            .setContentTitle(state.nowPlaying?.bookTitle ?: "Vox Reader")
+            .setContentTitle(state.nowPlaying?.bookTitle ?: getString(R.string.app_name))
             .setContentText(
                 when {
                     state.nowPlaying != null && state.totalSentences > 0 -> getString(

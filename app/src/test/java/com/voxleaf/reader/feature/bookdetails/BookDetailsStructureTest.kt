@@ -54,7 +54,7 @@ class BookDetailsStructureTest {
             StructurePreview(proposed, proposed, addedCount = 0, removedCount = 0, changedCount = 0)
         )
         coEvery { structure.apply("book", any()) } returns StructureResult.Applied
-        val viewModel = BookDetailsViewModel(repository, legacyRedetect, structure)
+        val viewModel = BookDetailsViewModel(mockk(relaxed = true), repository, legacyRedetect, structure)
         viewModel.loadBook("book")
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -82,7 +82,7 @@ class BookDetailsStructureTest {
         coEvery { structure.analyze("book") } returns StructureResult.Preview(
             StructurePreview(proposed, proposed, 0, 0, 0)
         )
-        val viewModel = BookDetailsViewModel(repository, legacyRedetect, structure)
+        val viewModel = BookDetailsViewModel(mockk(relaxed = true), repository, legacyRedetect, structure)
         viewModel.loadBook("book")
         dispatcher.scheduler.advanceUntilIdle()
         viewModel.handleAction(BookDetailsUiAction.OnRedetectChapters)

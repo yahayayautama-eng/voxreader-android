@@ -59,7 +59,7 @@ fun SplashScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
-                text = "Vox Reader",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.displayMedium.copy(
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onBackground

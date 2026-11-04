@@ -51,7 +51,8 @@ import kotlinx.coroutines.flow.stateIn
 import java.time.LocalDate
 import javax.inject.Inject
 
-data class BookListening(val bookId: String, val title: String, val seconds: Int)
+/** [title] is null once the book itself has been removed. */
+data class BookListening(val bookId: String, val title: String?, val seconds: Int)
 
 data class StatsUiState(
     val summary: ListeningSummary = ListeningSummary(0, 0, 0, 0, emptyList()),
@@ -73,7 +74,7 @@ class StatsViewModel @Inject constructor(
             summary = summarize(days, LocalDate.now()),
             books = byBook.map { (bookId, seconds) ->
                 // History outlives the book it came from, so a deleted book still shows its time.
-                BookListening(bookId, titleById[bookId] ?: "Removed document", seconds)
+                BookListening(bookId, titleById[bookId], seconds)
             }
         )
     }.stateIn(
@@ -226,7 +227,7 @@ private fun BookTotalRow(entry: BookListening, totalSeconds: Int) {
         Column(modifier = Modifier.padding(14.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = entry.title.toDisplayTitle(),
+                    text = entry.title?.toDisplayTitle() ?: stringResource(R.string.saved_item_removed_document),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,

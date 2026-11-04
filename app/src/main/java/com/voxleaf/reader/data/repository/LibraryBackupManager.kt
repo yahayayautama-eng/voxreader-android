@@ -3,6 +3,7 @@ package com.voxleaf.reader.data.repository
 import android.content.Context
 import android.net.Uri
 import androidx.room.withTransaction
+import com.voxleaf.reader.R
 import com.voxleaf.reader.data.local.AppDatabase
 import com.voxleaf.reader.data.local.entity.BookEntity
 import com.voxleaf.reader.data.local.entity.BookmarkEntity
@@ -25,6 +26,9 @@ sealed interface BackupResult {
     data class Success(val message: String) : BackupResult
     data class Error(val message: String) : BackupResult
 }
+
+/** A failure whose message is already localized; any other failure gets the generic text. */
+private class BackupException(message: String) : Exception(message)
 
 data class LibraryStorageSummary(val bytes: Long, val bookCount: Int)
 
@@ -61,21 +65,27 @@ class LibraryBackupManager @Inject constructor(
             require(staging.parentFile == stagingRoot)
             try {
                 staging.bufferedWriter(Charsets.UTF_8).use { it.write(json.encodeToString(payload)) }
-                require(staging.length() <= MAX_BACKUP_BYTES) { "The library backup is too large to export." }
+                if (staging.length() > MAX_BACKUP_BYTES) {
+                    throw BackupException(context.getString(R.string.backup_error_export_too_large))
+                }
                 val output = context.contentResolver.openOutputStream(uri, "wt")
-                    ?: error("The selected destination could not be opened.")
+                    ?: throw BackupException(context.getString(R.string.backup_error_destination))
                 output.buffered().use { destination -> staging.inputStream().buffered().use { it.copyTo(destination) } }
-                BackupResult.Success("Backup saved · ${payload.books.size} documents")
+                BackupResult.Success(
+                    context.resources.getQuantityString(R.plurals.backup_saved, payload.books.size, payload.books.size)
+                )
             } finally {
                 staging.delete()
             }
-        }.getOrElse { BackupResult.Error(it.message ?: "The backup could not be saved.") }
+        }.getOrElse {
+            BackupResult.Error((it as? BackupException)?.message ?: context.getString(R.string.backup_error_export))
+        }
     }
 
     suspend fun restoreFrom(uri: Uri): BackupResult = withContext(Dispatchers.IO) {
         runCatching {
             val input = context.contentResolver.openInputStream(uri)
-                ?: error("The selected backup could not be opened.")
+                ?: throw BackupException(context.getString(R.string.backup_error_source))
             val bytes = input.buffered().use { stream ->
                 val output = java.io.ByteArrayOutputStream()
                 val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
@@ -84,7 +94,9 @@ class LibraryBackupManager @Inject constructor(
                     val read = stream.read(buffer)
                     if (read < 0) break
                     total += read
-                    require(total <= MAX_BACKUP_BYTES) { "This backup exceeds the 150 MB restore limit." }
+                    if (total > MAX_BACKUP_BYTES) {
+                        throw BackupException(context.getString(R.string.backup_error_restore_too_large))
+                    }
                     output.write(buffer, 0, read)
                 }
                 output.toByteArray()
@@ -107,8 +119,12 @@ class LibraryBackupManager @Inject constructor(
                 database.highlightDao().insertHighlights(payload.highlights)
                 database.listeningDao().insertListeningDays(payload.listeningDays)
             }
-            BackupResult.Success("Backup restored · ${payload.books.size} documents")
-        }.getOrElse { BackupResult.Error(it.message ?: "The backup is invalid or could not be restored.") }
+            BackupResult.Success(
+                context.resources.getQuantityString(R.plurals.backup_restored, payload.books.size, payload.books.size)
+            )
+        }.getOrElse {
+            BackupResult.Error((it as? BackupException)?.message ?: context.getString(R.string.backup_error_restore))
+        }
     }
 
     internal fun validate(payload: LibraryBackupPayload) {

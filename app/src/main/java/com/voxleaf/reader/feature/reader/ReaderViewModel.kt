@@ -1,7 +1,9 @@
 package com.voxleaf.reader.feature.reader
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.voxleaf.reader.R
 import com.voxleaf.reader.data.local.datastore.AppSettingsManager
 import com.voxleaf.reader.domain.repository.BookRepository
 import com.voxleaf.reader.domain.repository.Bookmark
@@ -14,6 +16,7 @@ import com.voxleaf.reader.tts.TtsChapter
 import com.voxleaf.reader.tts.TtsManager
 import com.voxleaf.reader.tts.TtsTextParser
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,6 +31,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val bookRepository: BookRepository,
     private val ttsManager: TtsManager,
     private val appSettingsManager: AppSettingsManager,
@@ -193,7 +197,7 @@ class ReaderViewModel @Inject constructor(
                 }
                 followPlaybackChapter(ttsManager.state.value.nowPlaying)
             } else {
-                _uiState.update { it.copy(isLoading = false, errorMessage = "Book not found") }
+                _uiState.update { it.copy(isLoading = false, errorMessage = context.getString(R.string.book_not_found)) }
             }
         }
     }
@@ -286,7 +290,7 @@ class ReaderViewModel @Inject constructor(
                         note = action.note.ifBlank { null }
                     )
                     bookRepository.addBookmark(bookmark)
-                    _uiState.update { it.copy(bookmarkAddedMessage = "Bookmark saved!") }
+                    _uiState.update { it.copy(bookmarkAddedMessage = context.getString(R.string.reader_bookmark_saved)) }
                     delay(2000)
                     _uiState.update { it.copy(bookmarkAddedMessage = null) }
                 }
@@ -321,7 +325,7 @@ class ReaderViewModel @Inject constructor(
                         )
                     )
                     _uiState.update {
-                        it.copy(markingSentenceIndex = null, bookmarkAddedMessage = "Passage highlighted")
+                        it.copy(markingSentenceIndex = null, bookmarkAddedMessage = context.getString(R.string.reader_passage_highlighted))
                     }
                     delay(2000)
                     _uiState.update { it.copy(bookmarkAddedMessage = null) }

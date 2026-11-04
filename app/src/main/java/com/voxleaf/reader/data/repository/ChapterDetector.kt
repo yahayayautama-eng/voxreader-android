@@ -17,6 +17,15 @@ object ChapterDetector {
 
     data class Section(val title: String, val content: String)
 
+    /** Titles the detector has to invent. English defaults keep it usable without an Android context. */
+    class Labels(
+        val chapter: (Int) -> String = { "Chapter $it" },
+        val scene: (Int) -> String = { "Scene $it" },
+        val opening: String = "Opening"
+    )
+
+    private val DEFAULT_LABELS = Labels()
+
     private const val MAX_HEADING_LENGTH = 90
     private const val MIN_HEADINGS_TO_TRUST = 2
     private const val MIN_SECTION_CHARS = 40
@@ -100,7 +109,7 @@ object ChapterDetector {
     /**
      * Splits text by scene break markers (e.g. ***, * * *, ---, ###, ~~~, ⁂, • • •).
      */
-    fun splitBySceneBreaks(text: String): List<Section>? {
+    fun splitBySceneBreaks(text: String, labels: Labels = DEFAULT_LABELS): List<Section>? {
         val lines = text.lines()
         val breakIndices = mutableListOf<Int>()
         lines.forEachIndexed { index, line ->
@@ -123,21 +132,21 @@ object ChapterDetector {
         if (rawSections.any { it.length < 200 }) return null
 
         return rawSections.mapIndexed { index, content ->
-            Section("Scene ${index + 1}", content)
+            Section(labels.scene(index + 1), content)
         }
     }
 
     /**
      * Splits full text into chapters, stripping repeating headers and ensuring natural boundaries.
      */
-    fun split(text: String): List<Section>? {
+    fun split(text: String, labels: Labels = DEFAULT_LABELS): List<Section>? {
         val rawLines = text.lines()
         val candidates = mutableListOf<HeadingCandidate>()
 
         // Pass 1: Collect candidates
         var i = 0
         while (i < rawLines.size) {
-            val heading = detectHeadingAt(rawLines, i)
+            val heading = detectHeadingAt(rawLines, i, labels)
             if (heading != null) {
                 candidates += HeadingCandidate(i, heading.linesConsumed, heading.title)
                 i += heading.linesConsumed
@@ -188,7 +197,7 @@ object ChapterDetector {
         if (tocEndLine == 0) {
             val preamble = rawLines.take(validCandidates.first().lineIndex).joinToString("\n").trim()
             if (preamble.length >= MIN_SECTION_CHARS) {
-                sections += Section("Opening", preamble)
+                sections += Section(labels.opening, preamble)
             }
         }
 
@@ -253,7 +262,7 @@ object ChapterDetector {
         return maxTocEnd
     }
 
-    private fun detectHeadingAt(lines: List<String>, index: Int): HeadingMatch? {
+    private fun detectHeadingAt(lines: List<String>, index: Int, labels: Labels): HeadingMatch? {
         val line = lines[index].trim()
         if (line.isEmpty() || line.length > MAX_HEADING_LENGTH) return null
         if (line.none { it.isLetter() } && !STANDALONE_NUMBER.matches(line)) return null
@@ -300,11 +309,11 @@ object ChapterDetector {
         if (prevBlank && (STANDALONE_ROMAN.matches(line) || STANDALONE_NUMBER.matches(line))) {
             val nextLine = lines.getOrNull(index + 1)?.trim().orEmpty()
             if (nextLine.isNotEmpty() && nextLine.length <= MAX_HEADING_LENGTH && isPotentialSubtitle(nextLine)) {
-                val prefix = if (STANDALONE_NUMBER.matches(line)) "Chapter $line" else line
+                val prefix = if (STANDALONE_NUMBER.matches(line)) labels.chapter(line.toInt()) else line
                 return HeadingMatch("$prefix: $nextLine", 2)
             }
             if (nextBlank) {
-                val prefix = if (STANDALONE_NUMBER.matches(line)) "Chapter $line" else line
+                val prefix = if (STANDALONE_NUMBER.matches(line)) labels.chapter(line.toInt()) else line
                 return HeadingMatch(prefix, 1)
             }
         }

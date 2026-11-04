@@ -7,6 +7,7 @@ import android.media.AudioFocusRequest
 import android.media.AudioManager
 import android.media.MediaPlayer
 import android.os.PowerManager
+import com.voxleaf.reader.R
 import com.voxleaf.reader.data.local.datastore.AppSettingsManager
 import com.voxleaf.reader.playback.PlaybackService
 import dagger.Lazy
@@ -371,7 +372,7 @@ class TtsManager @Inject constructor(
                     it.copy(
                         isLoadingVoices = false,
                         errorMessage = if (id == EngineId.EDGE) {
-                            "Could not load Edge TTS voices. Check your connection and try again."
+                            context.getString(R.string.tts_error_edge_voices)
                         } else {
                             it.errorMessage
                         }
@@ -471,16 +472,16 @@ class TtsManager @Inject constructor(
                             isPaused = false,
                             isPreparing = false,
                             errorMessage = if (engine.requiresNetwork) {
-                                "Edge TTS could not generate audio. Check your connection and try again."
+                                context.getString(R.string.tts_error_edge_audio)
                             } else {
-                                "The bundled offline voice could not generate audio. Please try again."
+                                context.getString(R.string.tts_error_offline_audio)
                             }
                         )
                     }
                     return@launch
                 }
                 if (usedFallback) {
-                    _state.update { it.copy(errorMessage = "Connection lost — switched to the offline voice for this chapter.") }
+                    _state.update { it.copy(errorMessage = context.getString(R.string.tts_fallback_offline)) }
                 }
                 bufferedAudio[index] = audioFile
                 nextSentenceToBuffer += 1
@@ -568,7 +569,7 @@ class TtsManager @Inject constructor(
                     currentAudioFile = null
                 }
                 _state.update {
-                    it.copy(isSpeaking = false, isPaused = false, isPreparing = false, errorMessage = "Vox Reader could not play that sentence.")
+                    it.copy(isSpeaking = false, isPaused = false, isPreparing = false, errorMessage = context.getString(R.string.tts_error_play))
                 }
                 true
             }
@@ -586,7 +587,7 @@ class TtsManager @Inject constructor(
                 currentAudioFile = null
             }
             _state.update {
-                it.copy(isSpeaking = false, isPaused = false, isPreparing = false, errorMessage = "Vox Reader could not prepare that sentence.")
+                it.copy(isSpeaking = false, isPaused = false, isPreparing = false, errorMessage = context.getString(R.string.tts_error_prepare))
             }
         }
     }

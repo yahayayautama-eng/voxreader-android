@@ -1,13 +1,16 @@
 package com.voxleaf.reader.feature.bookdetails
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.voxleaf.reader.R
 import com.voxleaf.reader.domain.repository.BookRepository
 import com.voxleaf.reader.domain.usecase.RedetectChaptersUseCase
 import com.voxleaf.reader.domain.usecase.RedetectResult
 import com.voxleaf.reader.domain.usecase.SectionStructureUseCase
 import com.voxleaf.reader.domain.usecase.StructureResult
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,6 +20,7 @@ import java.util.UUID
 
 @HiltViewModel
 class BookDetailsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val bookRepository: BookRepository,
     private val redetectChaptersUseCase: RedetectChaptersUseCase,
     private val sectionStructureUseCase: SectionStructureUseCase
@@ -39,7 +43,7 @@ class BookDetailsViewModel @Inject constructor(
         _uiState.value = if (book != null) {
             BookDetailsUiState.Success(book)
         } else {
-            BookDetailsUiState.Error("Book not found")
+            BookDetailsUiState.Error(context.getString(R.string.book_not_found))
         }
     }
 
@@ -73,7 +77,7 @@ class BookDetailsViewModel @Inject constructor(
                 val title = action.title.trim()
                 if (title.isBlank()) {
                     _uiState.value = (_uiState.value as? BookDetailsUiState.Success)
-                        ?.copy(errorMessage = "Title is required.")
+                        ?.copy(errorMessage = context.getString(R.string.book_title_required))
                         ?: _uiState.value
                     return
                 }
@@ -81,9 +85,9 @@ class BookDetailsViewModel @Inject constructor(
                     bookRepository.updateBookMetadata(
                         bookId = bookId,
                         title = title,
-                        author = action.author.trim().ifBlank { "Unknown Author" },
+                        author = action.author.trim().ifBlank { context.getString(R.string.import_unknown_author) },
                         description = action.description.trim(),
-                        genre = action.genre.trim().ifBlank { "General" }
+                        genre = action.genre.trim().ifBlank { context.getString(R.string.import_default_genre) }
                     )
                     refreshBook(bookId)
                 }
@@ -108,7 +112,12 @@ class BookDetailsViewModel @Inject constructor(
                             _uiState.value = current.copy(
                                 isRedetectingChapters = false,
                                 structureDrafts = diff.proposed,
-                                structureDiffSummary = "${diff.addedCount} added · ${diff.removedCount} removed · ${diff.changedCount} changed"
+                                structureDiffSummary = context.getString(
+                                    R.string.structure_diff_summary,
+                                    diff.addedCount,
+                                    diff.removedCount,
+                                    diff.changedCount
+                                )
                             )
                         }
                         is StructureResult.Error -> {
@@ -146,7 +155,7 @@ class BookDetailsViewModel @Inject constructor(
                 val sentences = original.content.split(Regex("(?<=[.!?])\\s+")).filter { it.isNotBlank() }
                 if (sentences.size < 2) {
                     val state = _uiState.value as? BookDetailsUiState.Success
-                    if (state != null) _uiState.value = state.copy(redetectMessage = "This section is too short to split safely.")
+                    if (state != null) _uiState.value = state.copy(redetectMessage = context.getString(R.string.structure_split_too_short))
                     drafts
                 } else {
                     val midpoint = (sentences.size / 2).coerceAtLeast(1)
@@ -156,7 +165,7 @@ class BookDetailsViewModel @Inject constructor(
                     )
                     val second = original.copy(
                         id = UUID.randomUUID().toString(),
-                        title = "${original.title} — continued",
+                        title = context.getString(R.string.structure_section_continued, original.title),
                         content = sentences.drop(midpoint).joinToString(" "),
                         isManuallyEdited = true
                     )
@@ -181,7 +190,7 @@ class BookDetailsViewModel @Inject constructor(
                         StructureResult.Applied -> {
                             refreshBook(bookId)
                             val refreshed = _uiState.value as? BookDetailsUiState.Success ?: return@launch
-                            _uiState.value = refreshed.copy(redetectMessage = "Structure updated. Saved reading places were remapped.")
+                            _uiState.value = refreshed.copy(redetectMessage = context.getString(R.string.structure_updated))
                         }
                         is StructureResult.Error -> {
                             val current = _uiState.value as? BookDetailsUiState.Success ?: return@launch

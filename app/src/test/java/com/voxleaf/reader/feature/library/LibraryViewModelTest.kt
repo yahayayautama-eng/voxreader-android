@@ -76,7 +76,7 @@ class LibraryViewModelTest {
 
     @Test
     fun `clear action exits selection and dismisses confirmation`() = runTest(dispatcher) {
-        val viewModel = LibraryViewModel(repository, SavedStateHandle())
+        val viewModel = LibraryViewModel(mockk(relaxed = true), repository, SavedStateHandle())
         dispatcher.scheduler.advanceUntilIdle()
 
         viewModel.handleAction(LibraryUiAction.OnSelectBook("book-1"))
@@ -93,7 +93,7 @@ class LibraryViewModelTest {
 
     @Test
     fun `cancel closes confirmation and keeps selected ids`() = runTest(dispatcher) {
-        val viewModel = LibraryViewModel(repository, SavedStateHandle())
+        val viewModel = LibraryViewModel(mockk(relaxed = true), repository, SavedStateHandle())
         dispatcher.scheduler.advanceUntilIdle()
 
         viewModel.handleAction(LibraryUiAction.OnSelectBook("book-1"))
@@ -111,7 +111,7 @@ class LibraryViewModelTest {
 
     @Test
     fun `confirmation deletes exactly the selected stable book ids`() = runTest(dispatcher) {
-        val viewModel = LibraryViewModel(repository, SavedStateHandle())
+        val viewModel = LibraryViewModel(mockk(relaxed = true), repository, SavedStateHandle())
         dispatcher.scheduler.advanceUntilIdle()
 
         viewModel.handleAction(LibraryUiAction.OnSelectBook("book-3"))
@@ -129,7 +129,7 @@ class LibraryViewModelTest {
     @Test
     fun `partial failure removes successful id immediately and retains failed id`() = runTest(dispatcher) {
         coEvery { repository.removeBook("book-2") } throws IllegalStateException("disk busy")
-        val viewModel = LibraryViewModel(repository, SavedStateHandle())
+        val viewModel = LibraryViewModel(mockk(relaxed = true), repository, SavedStateHandle())
         dispatcher.scheduler.advanceUntilIdle()
 
         viewModel.handleAction(LibraryUiAction.OnSelectBook("book-1"))
@@ -149,12 +149,12 @@ class LibraryViewModelTest {
     @Test
     fun `selected ids restore from SavedStateHandle after view model recreation`() = runTest(dispatcher) {
         val savedStateHandle = SavedStateHandle()
-        val firstViewModel = LibraryViewModel(repository, savedStateHandle)
+        val firstViewModel = LibraryViewModel(mockk(relaxed = true), repository, savedStateHandle)
         dispatcher.scheduler.advanceUntilIdle()
         firstViewModel.handleAction(LibraryUiAction.OnSelectBook("book-2"))
         dispatcher.scheduler.advanceUntilIdle()
 
-        val recreatedViewModel = LibraryViewModel(repository, savedStateHandle)
+        val recreatedViewModel = LibraryViewModel(mockk(relaxed = true), repository, savedStateHandle)
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(
@@ -170,7 +170,7 @@ class LibraryViewModelTest {
                 "library_selected_book_ids" to arrayListOf("book-1", "missing-book")
             )
         )
-        val viewModel = LibraryViewModel(repository, savedStateHandle)
+        val viewModel = LibraryViewModel(mockk(relaxed = true), repository, savedStateHandle)
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(
@@ -182,7 +182,7 @@ class LibraryViewModelTest {
 
     @Test
     fun `library controls and selection survive repository recomputation`() = runTest(dispatcher) {
-        val viewModel = LibraryViewModel(repository, SavedStateHandle())
+        val viewModel = LibraryViewModel(mockk(relaxed = true), repository, SavedStateHandle())
         dispatcher.scheduler.advanceUntilIdle()
 
         viewModel.handleAction(LibraryUiAction.OnSearchQueryChange("Two"))

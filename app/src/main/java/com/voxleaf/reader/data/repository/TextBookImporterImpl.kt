@@ -6,6 +6,7 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.room.withTransaction
+import com.voxleaf.reader.R
 import com.voxleaf.reader.data.local.AppDatabase
 import com.voxleaf.reader.data.local.entity.BookEntity
 import com.voxleaf.reader.data.local.entity.ReadingProgressEntity
@@ -45,6 +46,14 @@ class TextBookImporterImpl @Inject constructor(
     private val scannedPageProcessor: ScannedPageProcessor
 ) : ImportTextBookUseCase, ImportScannedBookUseCase, RedetectChaptersUseCase, SectionStructureUseCase {
 
+    // A getter, not a cached value, so titles follow a language change made while the app runs.
+    private val detectorLabels
+        get() = ChapterDetector.Labels(
+            chapter = { context.getString(R.string.import_section_chapter, it) },
+            scene = { context.getString(R.string.import_section_scene, it) },
+            opening = context.getString(R.string.import_section_opening)
+        )
+
     /**
      * Re-parses the book's source file with the current [ChapterDetector] and replaces its sections.
      * Only reachable for books imported from a file that's still on disk — the sentence-joined chunks
@@ -54,32 +63,32 @@ class TextBookImporterImpl @Inject constructor(
     override suspend fun invoke(bookId: String): RedetectResult = when (val result = analyze(bookId)) {
         is StructureResult.Preview -> {
             if (result.value.current.any { it.isManuallyEdited }) {
-                RedetectResult.Error("This document has manual structure edits. Review the preview before applying changes.")
+                RedetectResult.Error(context.getString(R.string.structure_error_manual_edits))
             } else when (val applied = apply(bookId, result.value.proposed)) {
                 StructureResult.Applied -> RedetectResult.Success
                 is StructureResult.Error -> RedetectResult.Error(applied.message)
-                is StructureResult.Preview -> RedetectResult.Error("Could not apply the structure preview.")
+                is StructureResult.Preview -> RedetectResult.Error(context.getString(R.string.structure_error_apply_preview))
             }
         }
         is StructureResult.Error -> RedetectResult.Error(result.message)
-        StructureResult.Applied -> RedetectResult.Error("Could not build a structure preview.")
+        StructureResult.Applied -> RedetectResult.Error(context.getString(R.string.structure_error_build_preview))
     }
 
     override suspend fun analyze(bookId: String): StructureResult = withContext(Dispatchers.IO) {
         try {
             val stored = database.bookDao().getBookById(bookId)
-                ?: return@withContext StructureResult.Error("Document not found.")
+                ?: return@withContext StructureResult.Error(context.getString(R.string.structure_error_not_found))
             val path = stored.book.sourceFilePath
-                ?: return@withContext StructureResult.Error("Original file isn't available for this document.")
+                ?: return@withContext StructureResult.Error(context.getString(R.string.structure_error_no_source))
             val file = File(path)
             if (!file.isFile) {
-                return@withContext StructureResult.Error("Original file is no longer on this device.")
+                return@withContext StructureResult.Error(context.getString(R.string.structure_error_source_missing))
             }
             val proposed = parseByExtension(file, file.name).sections
                 .take(MAX_STRUCTURE_SECTIONS)
                 .mapIndexed { index, section -> section.toDraft(bookId, index, manuallyEdited = false) }
             if (proposed.isEmpty()) {
-                return@withContext StructureResult.Error("No readable sections were found.")
+                return@withContext StructureResult.Error(context.getString(R.string.structure_error_no_sections))
             }
             val current = stored.sections.sortedBy { it.section.chapterNumber }.map { value ->
                 val content = value.chunks.sortedBy { it.sequenceNumber }.joinToString(" ") { it.text }
@@ -112,7 +121,7 @@ class TextBookImporterImpl @Inject constructor(
         } catch (exception: CancellationException) {
             throw exception
         } catch (_: Exception) {
-            StructureResult.Error("Could not analyze this document's structure.")
+            StructureResult.Error(context.getString(R.string.structure_error_analyze))
         }
     }
 
@@ -122,16 +131,18 @@ class TextBookImporterImpl @Inject constructor(
     ): StructureResult = withContext(Dispatchers.IO) {
         try {
             val normalized = normalizeDrafts(sections)
-            if (normalized.isEmpty()) return@withContext StructureResult.Error("Keep at least one readable section.")
+            if (normalized.isEmpty()) return@withContext StructureResult.Error(context.getString(R.string.structure_error_keep_one))
             if (normalized.size > MAX_STRUCTURE_SECTIONS) {
-                return@withContext StructureResult.Error("This document exceeds the 500-section review limit.")
+                return@withContext StructureResult.Error(
+                    context.getString(R.string.structure_error_section_limit, MAX_STRUCTURE_SECTIONS)
+                )
             }
             replaceSectionsPreservingAnchors(bookId, normalized)
             StructureResult.Applied
         } catch (exception: CancellationException) {
             throw exception
         } catch (_: Exception) {
-            StructureResult.Error("The structure could not be applied. Your existing document was kept.")
+            StructureResult.Error(context.getString(R.string.structure_error_apply))
         }
     }
 
@@ -141,7 +152,7 @@ class TextBookImporterImpl @Inject constructor(
 
         try {
             if (uri.scheme != "content") {
-                emit(ImportState.Error("Please select a TXT, EPUB, DOCX, or PDF document from the system picker."))
+                emit(ImportState.Error(context.getString(R.string.import_error_picker)))
                 return@flow
             }
 
@@ -153,7 +164,7 @@ class TextBookImporterImpl @Inject constructor(
                 } else {
                     null
                 }
-            } ?: "Imported text"
+            } ?: context.getString(R.string.import_default_title, "TXT")
 
             val mimeType = context.contentResolver.getType(uri)
             val isEpub = displayName.endsWith(".epub", ignoreCase = true) || mimeType == EPUB_MIME_TYPE
@@ -165,11 +176,7 @@ class TextBookImporterImpl @Inject constructor(
             val fb2Extension = FB2_EXTENSIONS.firstOrNull { displayName.endsWith(it, ignoreCase = true) }
             val isText = displayName.endsWith(".txt", ignoreCase = true) || mimeType == "text/plain"
             if (!isText && !isEpub && !isPdf && !isDocx && mobiExtension == null && fb2Extension == null) {
-                emit(
-                    ImportState.Error(
-                        "Invalid file type. Select a TXT, EPUB, DOCX, MOBI, AZW3, FB2, or text-based PDF document."
-                    )
-                )
+                emit(ImportState.Error(context.getString(R.string.import_error_invalid_type)))
                 return@flow
             }
 
@@ -191,13 +198,13 @@ class TextBookImporterImpl @Inject constructor(
                     TextImportStreams.copyBounded(input, output)
                 }
             } ?: run {
-                emit(ImportState.Error("Could not read the selected file."))
+                emit(ImportState.Error(context.getString(R.string.import_error_unreadable_file)))
                 return@flow
             }
 
             if (destinationFile.length() == 0L) {
                 destinationFile.delete()
-                emit(ImportState.Error("File is empty."))
+                emit(ImportState.Error(context.getString(R.string.import_error_empty_file)))
                 return@flow
             }
 
@@ -210,14 +217,18 @@ class TextBookImporterImpl @Inject constructor(
             }
 
             emit(ImportState.Importing(0.8f, ImportStage.SAVING))
-            val result = persistBook(importedBook, destinationFile.absolutePath, "File contains no readable text.")
+            val result = persistBook(
+                importedBook,
+                destinationFile.absolutePath,
+                context.getString(R.string.import_error_file_no_text)
+            )
             if (result is ImportState.Error) {
                 destinationFile.delete()
             }
             emit(result)
         } catch (_: TextImportTooLargeException) {
             destination?.delete()
-            emit(ImportState.Error("File is too large. Maximum supported size is 300MB."))
+            emit(ImportState.Error(context.getString(R.string.import_error_file_too_large)))
         } catch (exception: EncryptedDocumentException) {
             destination?.delete()
             emit(
@@ -230,22 +241,22 @@ class TextBookImporterImpl @Inject constructor(
             emit(ImportState.Error(documentParseMessage("EPUB", exception.message)))
         } catch (exception: PdfBookParser.ParseException) {
             destination?.delete()
-            emit(ImportState.Error(exception.message ?: "Could not read this PDF file."))
+            emit(ImportState.Error(documentParseMessage("PDF", exception.message)))
         } catch (exception: DocxParser.ParseException) {
             destination?.delete()
             emit(ImportState.Error(documentParseMessage("DOCX", exception.message)))
         } catch (exception: MobiParser.ParseException) {
             destination?.delete()
-            emit(ImportState.Error(exception.message ?: "Could not read this Kindle book."))
+            emit(ImportState.Error(documentParseMessage("Kindle", exception.message)))
         } catch (exception: Fb2Parser.ParseException) {
             destination?.delete()
-            emit(ImportState.Error(exception.message ?: "Could not read this FictionBook file."))
+            emit(ImportState.Error(documentParseMessage("FictionBook", exception.message)))
         } catch (exception: CancellationException) {
             destination?.delete()
             throw exception
         } catch (_: Exception) {
             destination?.delete()
-            emit(ImportState.Error("Could not import this document. Check that it is a valid TXT, EPUB, DOCX, or PDF file."))
+            emit(ImportState.Error(context.getString(R.string.import_error_generic)))
         }
     }.flowOn(Dispatchers.IO)
 
@@ -335,7 +346,7 @@ class TextBookImporterImpl @Inject constructor(
                 estimatedMinutes = max(1, importedSection.content.length / 1000),
                 detectionSource = importedSection.detectionSource,
                 detectionConfidence = importedSection.detectionConfidence,
-                detectionReason = importedSection.detectionReason,
+                detectionReason = importedSection.detectionReason ?: context.getString(R.string.import_detection_reason),
                 startAnchor = startAnchor,
                 endAnchor = endAnchor
             )
@@ -422,15 +433,15 @@ class TextBookImporterImpl @Inject constructor(
         return content.lineSequence().firstOrNull { it.isNotBlank() }?.trim()
             ?.takeIf { it.length < 100 }
             ?: filename.removeSuffix(".txt").takeIf { it.isNotBlank() }
-            ?: "Imported text"
+            ?: context.getString(R.string.import_default_title, "TXT")
     }
 
     private fun parseText(file: File, filename: String): ImportedBook {
         val content = readWithEncodingFallback(file).first
         if (content.isBlank()) throw IllegalArgumentException("Text file contains no readable content.")
-        val sections = ChapterDetector.split(content)?.map { ImportedSection(it.title, it.content) }
+        val sections = ChapterDetector.split(content, detectorLabels)?.map { ImportedSection(it.title, it.content) }
             // Scene break fallback: split on ***, ---, etc. before falling back to paragraph grouping
-            ?: ChapterDetector.splitBySceneBreaks(content)?.map { ImportedSection(it.title, it.content) }
+            ?: ChapterDetector.splitBySceneBreaks(content, detectorLabels)?.map { ImportedSection(it.title, it.content) }
             // No headings or scene breaks: group paragraphs into readable stretches.
             ?: groupParagraphs(content).mapIndexed { index, text ->
                 ImportedSection(context.getString(com.voxleaf.reader.R.string.import_section_part, index + 1), text)
@@ -488,7 +499,7 @@ class TextBookImporterImpl @Inject constructor(
         }
         return ImportedBook(
             title = epub.title?.trim().takeUnless { it.isNullOrBlank() }
-                ?: filename.removeSuffix(".epub").ifBlank { "Imported EPUB" },
+                ?: filename.removeSuffix(".epub").ifBlank { context.getString(R.string.import_default_title, "EPUB") },
             author = epub.author?.trim().takeUnless { it.isNullOrBlank() } ?: context.getString(com.voxleaf.reader.R.string.import_unknown_author),
             description = context.getString(com.voxleaf.reader.R.string.import_book_description, "EPUB"),
             sections = sections,
@@ -541,7 +552,7 @@ class TextBookImporterImpl @Inject constructor(
         }
         return ImportedBook(
             title = mobi.title?.trim().takeUnless { it.isNullOrBlank() }
-                ?: filename.substringBeforeLast('.').ifBlank { "Imported Kindle book" },
+                ?: filename.substringBeforeLast('.').ifBlank { context.getString(R.string.import_default_title, "Kindle") },
             author = mobi.author?.trim().takeUnless { it.isNullOrBlank() } ?: context.getString(com.voxleaf.reader.R.string.import_unknown_author),
             description = context.getString(com.voxleaf.reader.R.string.import_book_description, "Kindle"),
             sections = ensureSections(sections, fullText),
@@ -561,7 +572,7 @@ class TextBookImporterImpl @Inject constructor(
         }
         return ImportedBook(
             title = fb2.title?.trim().takeUnless { it.isNullOrBlank() }
-                ?: filename.substringBeforeLast('.').ifBlank { "Imported FictionBook" },
+                ?: filename.substringBeforeLast('.').ifBlank { context.getString(R.string.import_default_title, "FictionBook") },
             author = fb2.author?.trim().takeUnless { it.isNullOrBlank() } ?: context.getString(com.voxleaf.reader.R.string.import_unknown_author),
             description = context.getString(com.voxleaf.reader.R.string.import_book_description, "FictionBook"),
             sections = ensureSections(sections, fb2.chapters.flatMap { it.paragraphs }.joinToString("\n"))
@@ -577,7 +588,7 @@ class TextBookImporterImpl @Inject constructor(
         fun finishSection() {
             if (currentContent.isNotEmpty()) {
                 sections += ImportedSection(
-                    title = currentTitle ?: "Section ${sections.size + 1}",
+                    title = currentTitle ?: context.getString(R.string.import_section_section, sections.size + 1),
                     content = currentContent.joinToString("\n\n")
                 )
                 currentContent.clear()
@@ -595,7 +606,7 @@ class TextBookImporterImpl @Inject constructor(
         if (sections.isEmpty()) throw DocxParser.ParseException("No readable content found in DOCX file.")
         return ImportedBook(
             title = docx.title?.trim().takeUnless { it.isNullOrBlank() }
-                ?: filename.removeSuffix(".docx").ifBlank { "Imported DOCX" },
+                ?: filename.removeSuffix(".docx").ifBlank { context.getString(R.string.import_default_title, "DOCX") },
             author = docx.author?.trim().takeUnless { it.isNullOrBlank() } ?: context.getString(com.voxleaf.reader.R.string.import_unknown_author),
             description = context.getString(com.voxleaf.reader.R.string.import_book_description, "DOCX"),
             // Heading styles first; a document that never used them still gets detected chapters.
@@ -620,18 +631,18 @@ class TextBookImporterImpl @Inject constructor(
         // matching heading-shaped strings — which is what promoted running headers to chapters.
         val structured = PdfBookParser.sectionsFromOutline(cleanedPages, pdf.outline)
             ?: PdfBookParser.sectionsFromFontSize(pdf.lines)
-            ?: ChapterDetector.split(fullText)
-            ?: ChapterDetector.splitBySceneBreaks(fullText)
+            ?: ChapterDetector.split(fullText, detectorLabels)
+            ?: ChapterDetector.splitBySceneBreaks(fullText, detectorLabels)
         val grouped = structured?.map { ImportedSection(it.title, it.content) }
             ?: groupParagraphs(fullText).takeIf { it.size > 1 }
                 ?.mapIndexed { index, text -> ImportedSection(context.getString(com.voxleaf.reader.R.string.import_section_part, index + 1), text) }
         return ImportedBook(
             title = pdf.title?.takeUnless { it.isBlank() }
-                ?: filename.removeSuffix(".pdf").ifBlank { "Imported PDF" },
+                ?: filename.removeSuffix(".pdf").ifBlank { context.getString(R.string.import_default_title, "PDF") },
             author = pdf.author?.takeUnless { it.isBlank() } ?: context.getString(com.voxleaf.reader.R.string.import_unknown_author),
             description = context.getString(com.voxleaf.reader.R.string.import_book_description, "PDF"),
             sections = grouped ?: cleanedPages.mapIndexedNotNull { index, pageText ->
-                pageText.takeIf { it.isNotBlank() }?.let { ImportedSection("Page ${index + 1}", it) }
+                pageText.takeIf { it.isNotBlank() }?.let { ImportedSection(context.getString(R.string.import_section_page, index + 1), it) }
             },
             coverBitmap = pdf.coverBitmap
         )
@@ -650,7 +661,7 @@ class TextBookImporterImpl @Inject constructor(
             val expanded = mutableListOf<ImportedSection>()
             for (section in sections) {
                 if (section.content.length > 3000) {
-                    val subSplit = ChapterDetector.split(section.content)
+                    val subSplit = ChapterDetector.split(section.content, detectorLabels)
                     if (subSplit != null && subSplit.size > 1) {
                         val avgLen = subSplit.sumOf { it.content.length } / subSplit.size
                         if (avgLen >= 500) {
@@ -663,8 +674,8 @@ class TextBookImporterImpl @Inject constructor(
             }
             return expanded
         }
-        return ChapterDetector.split(fullText)?.map { ImportedSection(it.title, it.content) }
-            ?: ChapterDetector.splitBySceneBreaks(fullText)?.map { ImportedSection(it.title, it.content) }
+        return ChapterDetector.split(fullText, detectorLabels)?.map { ImportedSection(it.title, it.content) }
+            ?: ChapterDetector.splitBySceneBreaks(fullText, detectorLabels)?.map { ImportedSection(it.title, it.content) }
             ?: groupParagraphs(fullText).takeIf { it.size > 1 }
                 ?.mapIndexed { index, text -> ImportedSection(context.getString(com.voxleaf.reader.R.string.import_section_part, index + 1), text) }
             ?: sections
@@ -679,11 +690,11 @@ class TextBookImporterImpl @Inject constructor(
         val end = sectionAnchor(content, fromStart = false)
         return StructureSectionDraft(
             id = stableSectionId(bookId, start, end, index),
-            title = title.trim().ifBlank { "Section ${index + 1}" },
+            title = title.trim().ifBlank { context.getString(R.string.import_section_section, index + 1) },
             content = content.trim(),
             detectionSource = detectionSource,
             detectionConfidence = detectionConfidence.coerceIn(0f, 1f),
-            detectionReason = detectionReason,
+            detectionReason = detectionReason ?: context.getString(R.string.import_detection_reason),
             startAnchor = start,
             endAnchor = end,
             isManuallyEdited = manuallyEdited
@@ -711,7 +722,7 @@ class TextBookImporterImpl @Inject constructor(
                 val combined = listOf(leadingIgnored, readable).filter { it.isNotBlank() }.joinToString(" ")
                 leadingIgnored = ""
                 result += draft.copy(
-                    title = draft.title.trim().ifBlank { "Section ${result.size + 1}" },
+                    title = draft.title.trim().ifBlank { context.getString(R.string.import_section_section, result.size + 1) },
                     content = combined,
                     startAnchor = sectionAnchor(combined, fromStart = true),
                     endAnchor = sectionAnchor(combined, fromStart = false)
@@ -865,15 +876,16 @@ class TextBookImporterImpl @Inject constructor(
         val content: String,
         val detectionSource: String = "DETECTED",
         val detectionConfidence: Float = 0.75f,
-        val detectionReason: String = "Detected from document structure and heading patterns"
+        val detectionReason: String? = null
     )
 
     private fun documentParseMessage(format: String, detail: String?): String {
         val normalized = detail.orEmpty().lowercase()
         val resource = when {
-            "too large" in normalized || "too many" in normalized ->
+            "password" in normalized -> com.voxleaf.reader.R.string.import_error_encrypted
+            "too large" in normalized || "too many" in normalized || "expands beyond" in normalized ->
                 com.voxleaf.reader.R.string.import_error_archive_limits
-            "no text" in normalized || "no readable" in normalized ->
+            "no text" in normalized || "no readable" in normalized || "no selectable" in normalized ->
                 com.voxleaf.reader.R.string.import_error_no_readable_text
             else -> com.voxleaf.reader.R.string.import_error_malformed
         }
