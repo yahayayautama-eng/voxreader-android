@@ -1,6 +1,6 @@
 # Store listing text
 
-DRAFT. Character limits are AppGallery's; the Chinese stores (Xiaomi, OPPO, vivo, Honor) use similar ones. Draft 简体 screenshots are in `docs/store-screenshots/zh-CN/` (library, reader, voice sheet, import). They come from a 2.5 GB emulator, so the voice sheet lists only the English voices and the reader shows no highlight (Kokoro is too slow to speak under emulation). Retake all four on a real phone with 3 GB or more, during playback, before submitting. English and 繁體 sets are still to do.
+DRAFT. Character limits are AppGallery's; the Chinese stores (Xiaomi, OPPO, vivo, Honor) use similar ones. Draft screenshots are in `docs/store-screenshots/` (`en`, `zh-CN`, `zh-TW`): library, reader, voice sheet, import. They come from a 2.5 GB emulator, so the voice sheet lists only the English voices and the Chinese readers show no highlight (Kokoro is too slow to speak under emulation). Retake all of them on a real phone with 3 GB or more, during playback, before submitting.
 
 ## English
 
