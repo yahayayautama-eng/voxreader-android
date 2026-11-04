@@ -1,6 +1,6 @@
 # Store listing text
 
-DRAFT. Character limits are AppGallery's; the Chinese stores (Xiaomi, OPPO, vivo, Honor) use similar ones. Screenshots still need taking: four per language, from a real phone, showing the library, the reader with a highlighted sentence, the voice picker and the scan screen.
+DRAFT. Character limits are AppGallery's; the Chinese stores (Xiaomi, OPPO, vivo, Honor) use similar ones. Draft 简体 screenshots are in `docs/store-screenshots/zh-CN/` (library, reader, voice sheet, import). They come from a 2.5 GB emulator, so the voice sheet lists only the English voices and the reader shows no highlight (Kokoro is too slow to speak under emulation). Retake all four on a real phone with 3 GB or more, during playback, before submitting. English and 繁體 sets are still to do.
 
 ## English
 
@@ -17,6 +17,7 @@ Vox Reader reads your books and documents aloud with natural-sounding neural voi
 - Opens EPUB, PDF, DOCX, MOBI, FB2 and TXT, and reads printed pages you scan with the camera.
 - Reads English and Mandarin Chinese, switching voice sentence by sentence in mixed books.
 - No account, no tracking, nothing collected. Your books never leave your phone.
+- Free to use, with 3 hours of reading aloud each week. Reading on screen is never limited.
 
 **Keywords:** read aloud, text to speech, TTS, audiobook, offline, EPUB, PDF reader, English learning
 
@@ -35,6 +36,7 @@ Vox Reader 用自然流畅的神经语音为您朗读书籍和文档，全部在
 - 支持 EPUB、PDF、DOCX、MOBI、FB2、TXT，还能用相机扫描纸质书页朗读。
 - 支持英语和普通话，中英混排的书会逐句切换合适的语音。
 - 无需账号，不追踪，不收集任何信息。您的书永远留在您的手机上。
+- 免费使用，每周可朗读 3 小时。屏幕阅读不限时。
 
 特别适合学英语：用地道的英语语音听原版书，逐句高亮，中文界面。
 
@@ -55,8 +57,10 @@ Vox Reader 用自然流暢的神經語音為您朗讀書籍和文件，全部在
 - 支援 EPUB、PDF、DOCX、MOBI、FB2、TXT，還能用相機掃描紙本書頁朗讀。
 - 支援英語和普通話，中英混排的書會逐句切換合適的語音。
 - 無需帳號，不追蹤，不收集任何資訊。您的書永遠留在您的手機上。
+- 免費使用，每週可朗讀 3 小時。螢幕閱讀不限時。
 
 ## Before submitting
 
 - The Chinese app name must match the name on the APP filing (APP备案) and the software copyright certificate (软著) exactly.
-- The in-app name is still "Vox Reader" in every language. To show the Chinese name on the home screen too, set `app_name` in `values-zh-rCN` and `values-zh-rTW` to the same name used here.
+- The home-screen name is "Vox 朗读" (简体) and "Vox 朗讀" (繁體), set by `app_name` in `values-zh-rCN` and `values-zh-rTW`. The 备案 and 软著 names must match the store name above.
+- The free tier stops reading aloud after 3 hours per week (`WEEKLY_LISTEN_LIMIT_SECONDS` in `app/build.gradle.kts`). There is no way to pay for more yet; choose one before publishing.

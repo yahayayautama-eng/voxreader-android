@@ -8,10 +8,15 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.stringResource
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.voxleaf.reader.core.ui.PrivacyConsentScreen
 import com.voxleaf.reader.core.ui.VoxLeafApp
+import com.voxleaf.reader.tts.ListeningTracker
 import com.voxleaf.reader.tts.TtsManager
 import com.voxleaf.reader.data.local.datastore.AppSettingsManager
 import com.voxleaf.reader.ui.theme.MyApplicationTheme
@@ -31,6 +36,9 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var settingsManager: AppSettingsManager
+
+    @Inject
+    lateinit var listeningTracker: ListeningTracker
 
     private val incomingDocumentUris = MutableStateFlow<List<String>>(emptyList())
 
@@ -75,6 +83,21 @@ class MainActivity : ComponentActivity() {
                         onIncomingDocumentsConsumed = {
                             incomingDocumentUris.value = emptyList()
                             intent.action = null
+                        }
+                    )
+                }
+                val weeklyLimitReached by listeningTracker.weeklyLimitReached.collectAsStateWithLifecycle()
+                if (weeklyLimitReached) {
+                    AlertDialog(
+                        onDismissRequest = listeningTracker::dismissWeeklyLimit,
+                        title = { Text(stringResource(R.string.limit_title)) },
+                        text = {
+                            Text(stringResource(R.string.limit_body, BuildConfig.WEEKLY_LISTEN_LIMIT_SECONDS / 3600))
+                        },
+                        confirmButton = {
+                            TextButton(onClick = listeningTracker::dismissWeeklyLimit) {
+                                Text(stringResource(android.R.string.ok))
+                            }
                         }
                     )
                 }

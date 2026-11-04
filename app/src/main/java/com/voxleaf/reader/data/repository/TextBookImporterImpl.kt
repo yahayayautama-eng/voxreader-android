@@ -266,12 +266,12 @@ class TextBookImporterImpl @Inject constructor(
             }
             processing as ScannedPageProcessingResult.Success
             val sections = processing.pages.map { page ->
-                ImportedSection("Page ${page.pageNumber}", page.text)
+                ImportedSection(context.getString(com.voxleaf.reader.R.string.import_section_page, page.pageNumber), page.text)
             }
             val importedBook = ImportedBook(
-                title = title.ifBlank { "Scanned document" },
-                author = "Unknown Author",
-                description = "Scanned with the camera and recognized on-device",
+                title = title.ifBlank { context.getString(com.voxleaf.reader.R.string.import_scanned_title) },
+                author = context.getString(com.voxleaf.reader.R.string.import_unknown_author),
+                description = context.getString(com.voxleaf.reader.R.string.import_scanned_description),
                 sections = sections,
                 coverBitmap = processing.coverBitmap
             )
@@ -364,7 +364,7 @@ class TextBookImporterImpl @Inject constructor(
                     title = importedBook.title,
                     author = importedBook.author,
                     description = importedBook.description,
-                    genre = "General",
+                    genre = context.getString(com.voxleaf.reader.R.string.import_default_genre),
                     coverColorHex = coverColorForTitle(importedBook.title),
                     totalChapters = sections.size,
                     isFavorite = false,
@@ -433,12 +433,12 @@ class TextBookImporterImpl @Inject constructor(
             ?: ChapterDetector.splitBySceneBreaks(content)?.map { ImportedSection(it.title, it.content) }
             // No headings or scene breaks: group paragraphs into readable stretches.
             ?: groupParagraphs(content).mapIndexed { index, text ->
-                ImportedSection("Part ${index + 1}", text)
+                ImportedSection(context.getString(com.voxleaf.reader.R.string.import_section_part, index + 1), text)
             }
         return ImportedBook(
             title = extractTitle(content, filename),
-            author = "Unknown Author",
-            description = "Imported plain-text document",
+            author = context.getString(com.voxleaf.reader.R.string.import_unknown_author),
+            description = context.getString(com.voxleaf.reader.R.string.import_book_description, "TXT"),
             sections = sections
         )
     }
@@ -474,7 +474,7 @@ class TextBookImporterImpl @Inject constructor(
             if (body.isBlank()) {
                 null
             } else {
-                ImportedSection(chapter.title?.trim().orEmpty().ifBlank { "Chapter ${index + 1}" }, body)
+                ImportedSection(chapter.title?.trim().orEmpty().ifBlank { context.getString(com.voxleaf.reader.R.string.import_section_chapter, index + 1) }, body)
             }
         }
         val sections = ensureSections(spineSections, epub.paragraphs.joinToString("\n") { it.text })
@@ -489,8 +489,8 @@ class TextBookImporterImpl @Inject constructor(
         return ImportedBook(
             title = epub.title?.trim().takeUnless { it.isNullOrBlank() }
                 ?: filename.removeSuffix(".epub").ifBlank { "Imported EPUB" },
-            author = epub.author?.trim().takeUnless { it.isNullOrBlank() } ?: "Unknown Author",
-            description = "Imported EPUB document",
+            author = epub.author?.trim().takeUnless { it.isNullOrBlank() } ?: context.getString(com.voxleaf.reader.R.string.import_unknown_author),
+            description = context.getString(com.voxleaf.reader.R.string.import_book_description, "EPUB"),
             sections = sections,
             coverBitmap = coverBitmap
         )
@@ -528,7 +528,7 @@ class TextBookImporterImpl @Inject constructor(
             if (body.isBlank()) {
                 null
             } else {
-                ImportedSection(chapter.title?.trim().orEmpty().ifBlank { "Chapter ${index + 1}" }, body)
+                ImportedSection(chapter.title?.trim().orEmpty().ifBlank { context.getString(com.voxleaf.reader.R.string.import_section_chapter, index + 1) }, body)
             }
         }
         val fullText = mobi.chapters.flatMap { it.paragraphs }.joinToString("\n") { it.text }
@@ -542,8 +542,8 @@ class TextBookImporterImpl @Inject constructor(
         return ImportedBook(
             title = mobi.title?.trim().takeUnless { it.isNullOrBlank() }
                 ?: filename.substringBeforeLast('.').ifBlank { "Imported Kindle book" },
-            author = mobi.author?.trim().takeUnless { it.isNullOrBlank() } ?: "Unknown Author",
-            description = "Imported Kindle document",
+            author = mobi.author?.trim().takeUnless { it.isNullOrBlank() } ?: context.getString(com.voxleaf.reader.R.string.import_unknown_author),
+            description = context.getString(com.voxleaf.reader.R.string.import_book_description, "Kindle"),
             sections = ensureSections(sections, fullText),
             coverBitmap = coverBitmap
         )
@@ -556,14 +556,14 @@ class TextBookImporterImpl @Inject constructor(
             if (body.isBlank()) {
                 null
             } else {
-                ImportedSection(chapter.title?.trim().orEmpty().ifBlank { "Chapter ${index + 1}" }, body)
+                ImportedSection(chapter.title?.trim().orEmpty().ifBlank { context.getString(com.voxleaf.reader.R.string.import_section_chapter, index + 1) }, body)
             }
         }
         return ImportedBook(
             title = fb2.title?.trim().takeUnless { it.isNullOrBlank() }
                 ?: filename.substringBeforeLast('.').ifBlank { "Imported FictionBook" },
-            author = fb2.author?.trim().takeUnless { it.isNullOrBlank() } ?: "Unknown Author",
-            description = "Imported FictionBook document",
+            author = fb2.author?.trim().takeUnless { it.isNullOrBlank() } ?: context.getString(com.voxleaf.reader.R.string.import_unknown_author),
+            description = context.getString(com.voxleaf.reader.R.string.import_book_description, "FictionBook"),
             sections = ensureSections(sections, fb2.chapters.flatMap { it.paragraphs }.joinToString("\n"))
         )
     }
@@ -596,8 +596,8 @@ class TextBookImporterImpl @Inject constructor(
         return ImportedBook(
             title = docx.title?.trim().takeUnless { it.isNullOrBlank() }
                 ?: filename.removeSuffix(".docx").ifBlank { "Imported DOCX" },
-            author = docx.author?.trim().takeUnless { it.isNullOrBlank() } ?: "Unknown Author",
-            description = "Imported DOCX document",
+            author = docx.author?.trim().takeUnless { it.isNullOrBlank() } ?: context.getString(com.voxleaf.reader.R.string.import_unknown_author),
+            description = context.getString(com.voxleaf.reader.R.string.import_book_description, "DOCX"),
             // Heading styles first; a document that never used them still gets detected chapters.
             sections = ensureSections(sections, docx.paragraphs.joinToString("\n") { it.text })
         )
@@ -624,12 +624,12 @@ class TextBookImporterImpl @Inject constructor(
             ?: ChapterDetector.splitBySceneBreaks(fullText)
         val grouped = structured?.map { ImportedSection(it.title, it.content) }
             ?: groupParagraphs(fullText).takeIf { it.size > 1 }
-                ?.mapIndexed { index, text -> ImportedSection("Part ${index + 1}", text) }
+                ?.mapIndexed { index, text -> ImportedSection(context.getString(com.voxleaf.reader.R.string.import_section_part, index + 1), text) }
         return ImportedBook(
             title = pdf.title?.takeUnless { it.isBlank() }
                 ?: filename.removeSuffix(".pdf").ifBlank { "Imported PDF" },
-            author = pdf.author?.takeUnless { it.isBlank() } ?: "Unknown Author",
-            description = "Imported text-based PDF document",
+            author = pdf.author?.takeUnless { it.isBlank() } ?: context.getString(com.voxleaf.reader.R.string.import_unknown_author),
+            description = context.getString(com.voxleaf.reader.R.string.import_book_description, "PDF"),
             sections = grouped ?: cleanedPages.mapIndexedNotNull { index, pageText ->
                 pageText.takeIf { it.isNotBlank() }?.let { ImportedSection("Page ${index + 1}", it) }
             },
@@ -666,7 +666,7 @@ class TextBookImporterImpl @Inject constructor(
         return ChapterDetector.split(fullText)?.map { ImportedSection(it.title, it.content) }
             ?: ChapterDetector.splitBySceneBreaks(fullText)?.map { ImportedSection(it.title, it.content) }
             ?: groupParagraphs(fullText).takeIf { it.size > 1 }
-                ?.mapIndexed { index, text -> ImportedSection("Part ${index + 1}", text) }
+                ?.mapIndexed { index, text -> ImportedSection(context.getString(com.voxleaf.reader.R.string.import_section_part, index + 1), text) }
             ?: sections
     }
 

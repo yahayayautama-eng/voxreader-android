@@ -441,34 +441,37 @@ fun ReaderScreen(
                             style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                         )
 
-                        // Engine selection
-                        Text(
-                            text = stringResource(com.voxleaf.reader.R.string.reader_voice_source),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            listOf(
-                                EngineId.OFFLINE to com.voxleaf.reader.R.string.reader_voice_on_device,
-                                EngineId.EDGE to com.voxleaf.reader.R.string.reader_voice_online
-                            ).forEach { (engine, label) ->
-                                val selected = uiState.ttsEngineId == engine
-                                OutlinedButton(
-                                    onClick = { viewModel.handleAction(ReaderUiAction.OnSetTtsEngine(engine)) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(8.dp),
-                                    border = if (selected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
-                                ) {
-                                    Text(
-                                        text = stringResource(label),
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-                                    )
+                        // Engine selection. Builds without online voices have only one engine.
+                        if (com.voxleaf.reader.BuildConfig.ONLINE_VOICES) {
+                            Text(
+                                text = stringResource(com.voxleaf.reader.R.string.reader_voice_source),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                listOf(
+                                    EngineId.OFFLINE to com.voxleaf.reader.R.string.reader_voice_on_device,
+                                    EngineId.EDGE to com.voxleaf.reader.R.string.reader_voice_online
+                                ).forEach { (engine, label) ->
+                                    val selected = uiState.ttsEngineId == engine
+                                    OutlinedButton(
+                                        onClick = { viewModel.handleAction(ReaderUiAction.OnSetTtsEngine(engine)) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = if (selected) androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+                                    ) {
+                                        Text(
+                                            text = stringResource(label),
+                                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
                                 }
                             }
+
                         }
 
                         // Speed / Rate controls
@@ -1033,7 +1036,7 @@ private fun ChapterScrubber(
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(formatClock(elapsedSeconds), style = Eyebrow, color = textColor.copy(alpha = 0.55f))
-            Text("$remainingMinutes min left", style = Eyebrow, color = textColor.copy(alpha = 0.55f))
+            Text(stringResource(com.voxleaf.reader.R.string.reader_minutes_left, remainingMinutes), style = Eyebrow, color = textColor.copy(alpha = 0.55f))
         }
     }
 }

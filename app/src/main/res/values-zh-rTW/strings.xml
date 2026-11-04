@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Vox Reader</string>
+    <string name="app_name">Vox 朗讀</string>
     <string name="title_splash">啓動</string>
     <string name="title_library">書庫</string>
     <string name="title_import">匯入</string>
@@ -386,4 +386,22 @@
     <string name="pb_stop">停止</string>
     <string name="pb_sentence_of">%1$s · 第 %2$d 句，共 %3$d 句</string>
     <string name="pb_preparing_audio">正在準備離線音頻…</string>
+    <string name="limit_title">本週免費收聽時數已用完</string>
+    <string name="limit_body">免費版每週可朗讀 %1$d 小時，收聽時數將於週一重設。您仍可以在螢幕上閱讀書籍。</string>
+    <string name="import_unknown_author">未知作者</string>
+    <string name="import_default_genre">綜合</string>
+    <string name="import_section_page">第 %1$d 頁</string>
+    <string name="import_section_part">第 %1$d 部分</string>
+    <string name="import_section_chapter">第 %1$d 章</string>
+    <string name="import_scanned_title">掃描文件</string>
+    <string name="import_scanned_description">用相機掃描，在裝置上辨識</string>
+    <string name="import_book_description">匯入的 %1$s 文件</string>
+    <string name="library_progress_a11y">已讀 %1$d%%</string>
+    <string name="library_chapter_of">第 %1$d/%2$d 章</string>
+    <plurals name="bd_summary">
+        <item quantity="other">%1$d 章 · 剩餘 %2$s · 已讀 %3$d%%</item>
+    </plurals>
+    <string name="bd_hours_minutes">%1$d 小時 %2$d 分鐘</string>
+    <string name="bd_minutes">%1$d 分鐘</string>
+    <string name="reader_minutes_left">剩餘 %1$d 分鐘</string>
 </resources>

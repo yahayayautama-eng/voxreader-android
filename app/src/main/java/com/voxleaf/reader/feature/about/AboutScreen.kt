@@ -48,7 +48,7 @@ fun AboutScreen() {
             )
             Spacer(modifier = Modifier.width(12.dp))
             Column {
-                Text("Vox Reader", style = MaterialTheme.typography.headlineSmall.copy(fontFamily = ReaderSerif))
+                Text(stringResource(com.voxleaf.reader.R.string.app_name), style = MaterialTheme.typography.headlineSmall.copy(fontFamily = ReaderSerif))
                 Text(stringResource(R.string.about_tagline), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text(stringResource(R.string.about_version, BuildConfig.VERSION_NAME), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }

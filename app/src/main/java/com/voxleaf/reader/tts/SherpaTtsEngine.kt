@@ -39,7 +39,7 @@ class SherpaTtsEngine @Inject constructor(
     override val requiresNetwork: Boolean get() = false
 
     private val runtimeDir = File(context.filesDir, "sherpa-runtime")
-    private val kokoroDir = File(runtimeDir, KOKORO_DIR)
+    private val legacyKokoroDir = File(runtimeDir, KOKORO_DIR)
     private val liveOutputDir = File(context.filesDir, "sherpa-playback")
 
     private val loaded = arrayOfNulls<OfflineTts>(VoiceModel.entries.size)
@@ -116,9 +116,9 @@ class SherpaTtsEngine @Inject constructor(
         if (failed[model.ordinal]) return null
         return runCatching {
             // espeak-ng reads its data directory off the real filesystem, so it cannot stay inside
-            // the APK; the models are copied alongside it rather than maintaining two access paths.
-            // ponytail: Kokoro's copy doubles its ~170 MB on disk; load it from assets via an
-            // AssetManager if storage complaints come in (needs a device test of mixed paths).
+            // the APK. Piper's small model is copied alongside it. Kokoro's ~170 MB is read straight
+            // from the APK through the AssetManager instead, so it never takes disk space twice;
+            // only its dataDir points at the extracted espeak copy.
             extractBaseIfNeeded()
             val modelConfig = when (model) {
                 VoiceModel.PIPER -> OfflineTtsModelConfig(
@@ -131,15 +131,16 @@ class SherpaTtsEngine @Inject constructor(
                     provider = "cpu"
                 )
                 VoiceModel.KOKORO -> {
-                    extractKokoroIfNeeded()
+                    // Earlier versions unpacked Kokoro to disk; reclaim that space.
+                    legacyKokoroDir.deleteRecursively()
                     OfflineTtsModelConfig(
                         kokoro = OfflineTtsKokoroModelConfig(
-                            model = File(kokoroDir, MODEL).absolutePath,
-                            voices = File(kokoroDir, "voices.bin").absolutePath,
-                            tokens = File(kokoroDir, TOKENS).absolutePath,
+                            model = "$KOKORO_ASSETS/$MODEL",
+                            voices = "$KOKORO_ASSETS/voices.bin",
+                            tokens = "$KOKORO_ASSETS/$TOKENS",
                             dataDir = File(runtimeDir, ESPEAK_DATA).absolutePath,
                             lexicon = listOf("lexicon-us-en.txt", "lexicon-zh.txt")
-                                .joinToString(",") { File(kokoroDir, it).absolutePath }
+                                .joinToString(",") { "$KOKORO_ASSETS/$it" }
                         ),
                         numThreads = threads(),
                         provider = "cpu"
@@ -147,13 +148,14 @@ class SherpaTtsEngine @Inject constructor(
                 }
             }
             OfflineTts(
-                assetManager = null,
+                // With an AssetManager, sherpa-onnx opens every model path in the APK.
+                assetManager = if (model == VoiceModel.KOKORO) context.assets else null,
                 config = OfflineTtsConfig(
                     model = modelConfig,
                     // Reads Chinese numbers, dates and phone numbers the way a person would.
                     ruleFsts = if (model == VoiceModel.KOKORO) {
                         listOf("phone-zh.fst", "date-zh.fst", "number-zh.fst")
-                            .joinToString(",") { File(kokoroDir, it).absolutePath }
+                            .joinToString(",") { "$KOKORO_ASSETS/$it" }
                     } else {
                         ""
                     }
@@ -171,7 +173,7 @@ class SherpaTtsEngine @Inject constructor(
      * Copies the Piper model and the shared espeak data out of assets on first run. Guarded by a
      * marker file holding the asset version rather than by mere existence: an upgrade that ships a
      * different model must overwrite the old one, and a copy interrupted halfway must not be
-     * mistaken for a finished one. Kokoro is skipped here and unpacked only when first used.
+     * mistaken for a finished one. Kokoro is skipped: it is read straight from the APK.
      */
     private fun extractBaseIfNeeded() {
         val marker = File(runtimeDir, MARKER)
@@ -182,14 +184,6 @@ class SherpaTtsEngine @Inject constructor(
             .filter { it != KOKORO_DIR }
             .forEach { child -> copyAssetTree("$ASSET_ROOT/$child", File(runtimeDir, child)) }
         marker.writeText(MODEL_VERSION)
-    }
-
-    private fun extractKokoroIfNeeded() {
-        val marker = File(kokoroDir, MARKER)
-        if (marker.isFile && marker.readText() == KOKORO_VERSION) return
-        kokoroDir.deleteRecursively()
-        copyAssetTree("$ASSET_ROOT/$KOKORO_DIR", kokoroDir)
-        marker.writeText(KOKORO_VERSION)
     }
 
     private fun copyAssetTree(assetPath: String, target: File) {
@@ -211,9 +205,9 @@ class SherpaTtsEngine @Inject constructor(
 
     companion object {
         const val MODEL_VERSION = "piper-libritts-r-medium-int8-2"
-        const val KOKORO_VERSION = "kokoro-int8-multi-lang-v1_1"
         private const val ASSET_ROOT = "sherpa"
         private const val KOKORO_DIR = "kokoro"
+        private const val KOKORO_ASSETS = "$ASSET_ROOT/$KOKORO_DIR"
         private const val MODEL = "model.onnx"
         private const val TOKENS = "tokens.txt"
         private const val ESPEAK_DATA = "espeak-ng-data"

@@ -88,6 +88,7 @@ interface BookRepository {
 
     suspend fun recordListening(bookId: String, seconds: Int)
     fun getListeningDays(): Flow<List<ListeningDay>>
+    suspend fun getListeningSecondsSince(date: java.time.LocalDate): Int
     /** Total seconds per book id, most-listened first. Ids of deleted books are kept and may not resolve. */
     fun getListeningByBook(): Flow<List<Pair<String, Int>>>
 }

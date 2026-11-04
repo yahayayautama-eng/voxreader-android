@@ -37,6 +37,8 @@ class ScannedImportAtomicityTest {
             pages = listOf(ProcessedScannedPage(1, "")),
             coverBitmap = cover
         )
+        every { context.getString(any()) } returns ""
+        every { context.getString(any(), *anyVararg()) } returns ""
         every { context.getString(R.string.scan_error_no_readable_text) } returns "No readable text"
         val importer = TextBookImporterImpl(context, database, mockk(), processor)
         val file = temporaryFolder.newFile("page.jpg").apply { writeText("image") }

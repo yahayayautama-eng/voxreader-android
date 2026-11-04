@@ -317,8 +317,18 @@ fun SettingsScreen(
                                         ),
                                     contentAlignment = Alignment.Center
                                 ) {
+                                    val themeLabel = when (name.uppercase()) {
+                                        "LIGHT" -> R.string.reader_theme_light
+                                        "SEPIA" -> R.string.reader_theme_sepia
+                                        "NIGHT" -> R.string.reader_theme_night
+                                        "OLED" -> R.string.reader_theme_black
+                                        "DARK" -> R.string.reader_theme_dark
+                                        "IVORY" -> R.string.reader_theme_ivory
+                                        else -> null
+                                    }
                                     Text(
-                                        text = name.lowercase().replaceFirstChar { it.uppercase() },
+                                        text = themeLabel?.let { stringResource(it) }
+                                            ?: name.lowercase().replaceFirstChar { it.uppercase() },
                                         style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold),
                                         color = fg
                                     )

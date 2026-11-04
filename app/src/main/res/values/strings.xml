@@ -397,4 +397,23 @@
     <string name="pb_stop">Stop</string>
     <string name="pb_sentence_of">%1$s · sentence %2$d of %3$d</string>
     <string name="pb_preparing_audio">Preparing offline audio…</string>
+    <string name="limit_title">Weekly listening limit reached</string>
+    <string name="limit_body">The free version reads aloud for %1$d hours each week. Your listening time resets on Monday. You can still read your books on screen.</string>
+    <string name="import_unknown_author">Unknown Author</string>
+    <string name="import_default_genre">General</string>
+    <string name="import_section_page">Page %1$d</string>
+    <string name="import_section_part">Part %1$d</string>
+    <string name="import_section_chapter">Chapter %1$d</string>
+    <string name="import_scanned_title">Scanned document</string>
+    <string name="import_scanned_description">Scanned with the camera and recognized on-device</string>
+    <string name="import_book_description">Imported %1$s document</string>
+    <string name="library_progress_a11y">%1$d percent complete</string>
+    <string name="library_chapter_of">Ch %1$d of %2$d</string>
+    <plurals name="bd_summary">
+        <item quantity="one">%1$d chapter · %2$s left · %3$d%% complete</item>
+        <item quantity="other">%1$d chapters · %2$s left · %3$d%% complete</item>
+    </plurals>
+    <string name="bd_hours_minutes">%1$dh %2$dm</string>
+    <string name="bd_minutes">%1$dm</string>
+    <string name="reader_minutes_left">%1$d min left</string>
 </resources>

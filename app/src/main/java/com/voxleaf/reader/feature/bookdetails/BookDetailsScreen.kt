@@ -165,7 +165,10 @@ fun BookDetailsScreen(
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
-                                text = "${book.totalChapters} chapters · ${formatMinutes(minutesLeft)} left · ${(progress * 100).toInt()}% complete",
+                                text = androidx.compose.ui.res.pluralStringResource(
+                                    R.plurals.bd_summary, book.totalChapters,
+                                    book.totalChapters, formatMinutes(minutesLeft), (progress * 100).toInt()
+                                ),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
@@ -571,7 +574,7 @@ private fun ChapterRow(
         if (state == ChapterState.Current) {
             Text(stringResource(R.string.bd_playing), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
         } else {
-            Text("$minutes min", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.bd_minutes, minutes), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
@@ -593,8 +596,13 @@ private fun StatusDot(state: ChapterState) {
     }
 }
 
+@Composable
 private fun formatMinutes(total: Int): String =
-    if (total >= 60) "${total / 60}h ${total % 60}m" else "${total}m"
+    if (total >= 60) {
+        stringResource(R.string.bd_hours_minutes, total / 60, total % 60)
+    } else {
+        stringResource(R.string.bd_minutes, total)
+    }
 
 @Composable
 private fun EditMetadataDialog(

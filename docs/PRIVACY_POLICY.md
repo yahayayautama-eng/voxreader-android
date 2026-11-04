@@ -13,7 +13,7 @@ Nothing. Vox Reader has no account, no analytics, no crash reporting and no ads.
 ## What stays on your device
 
 - Your imported books and documents
-- Bookmarks, reading position and listening statistics
+- Bookmarks, reading position and listening statistics. The weekly free listening allowance is counted from these statistics, on your device.
 - Your settings, such as theme, voice and speed
 
 All of this is stored in the app's private storage on your device. Removing a book deletes its copy from the app. Uninstalling the app deletes everything.

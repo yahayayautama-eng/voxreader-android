@@ -257,6 +257,9 @@ class RoomBookRepository @Inject constructor(
         listeningDao.addSeconds(LocalDate.now().toString(), bookId, seconds)
     }
 
+    override suspend fun getListeningSecondsSince(date: LocalDate): Int =
+        listeningDao.secondsSince(date.toString())
+
     override fun getListeningDays(): Flow<List<ListeningDay>> =
         listeningDao.getDailyTotals().map { totals ->
             totals.mapNotNull { total ->

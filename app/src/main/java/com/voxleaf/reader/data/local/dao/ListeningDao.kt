@@ -35,6 +35,10 @@ interface ListeningDao {
     @Query("SELECT date, SUM(seconds) AS seconds FROM listening_days GROUP BY date ORDER BY date")
     fun getDailyTotals(): Flow<List<DayTotal>>
 
+    /** Dates are ISO yyyy-MM-dd, so string comparison orders them correctly. */
+    @Query("SELECT COALESCE(SUM(seconds), 0) FROM listening_days WHERE date >= :since")
+    suspend fun secondsSince(since: String): Int
+
     @Query("SELECT bookId, SUM(seconds) AS seconds FROM listening_days GROUP BY bookId ORDER BY seconds DESC")
     fun getBookTotals(): Flow<List<BookTotal>>
 }

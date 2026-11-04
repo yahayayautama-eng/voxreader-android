@@ -40,6 +40,7 @@ android {
       dimension = "store"
       buildConfigField("boolean", "ONLINE_VOICES", "true")
       buildConfigField("boolean", "REQUIRE_PRIVACY_CONSENT", "false")
+      buildConfigField("int", "WEEKLY_LISTEN_LIMIT_SECONDS", "0")
     }
     // AppGallery and the Chinese Android stores install plain APKs, which never contain asset
     // packs, so the voices are packed into the APK itself (see sourceSets). Ship this flavor with
@@ -49,6 +50,8 @@ android {
       dimension = "store"
       buildConfigField("boolean", "ONLINE_VOICES", "false")
       buildConfigField("boolean", "REQUIRE_PRIVACY_CONSENT", "true")
+      // Free tier: 3 hours of listening per calendar week (Monday to Sunday). 0 means no limit.
+      buildConfigField("int", "WEEKLY_LISTEN_LIMIT_SECONDS", "10800")
     }
   }
 

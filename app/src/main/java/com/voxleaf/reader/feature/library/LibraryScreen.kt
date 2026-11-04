@@ -468,7 +468,7 @@ private fun LibraryHeader(searchQuery: String, onAction: (LibraryUiAction) -> Un
         ) {
             Column {
                 Text(
-                    text = "Vox Reader",
+                    text = stringResource(com.voxleaf.reader.R.string.app_name),
                     style = MaterialTheme.typography.displaySmall.copy(
                         fontFamily = BrandItalic,
                         fontStyle = FontStyle.Italic,
@@ -711,6 +711,7 @@ private fun SpineCell(
         animationSpec = tween(140, easing = FastOutSlowInEasing),
         label = "spinePress"
     )
+    val cardDescription = book.accessibilityDescription()
 
     Box(modifier = Modifier.fillMaxWidth()) {
         Column(
@@ -725,7 +726,7 @@ private fun SpineCell(
                 )
                 .testTag("book_card_${book.id}")
                 .semantics(mergeDescendants = true) {
-                    contentDescription = book.accessibilityDescription()
+                    contentDescription = cardDescription
                     role = Role.Button
                     if (isSelectionMode) {
                         selected = isSelected
@@ -854,15 +855,17 @@ private fun SpineCell(
 private fun Book.progressFraction(): Float =
     libraryProgressFraction()
 
+@Composable
 private fun Book.readingMetadata(): String =
     listOfNotNull(
         author.takeIf { it.isNotBlank() },
-        "Ch ${currentChapterIndex + 1} of $totalChapters"
+        stringResource(com.voxleaf.reader.R.string.library_chapter_of, currentChapterIndex + 1, totalChapters)
     ).joinToString(" · ")
 
+@Composable
 private fun Book.accessibilityDescription(): String =
     listOfNotNull(
         title.toDisplayTitle(),
         author.takeIf { it.isNotBlank() },
-        "${(progressFraction() * 100).roundToInt()} percent complete"
+        stringResource(com.voxleaf.reader.R.string.library_progress_a11y, (progressFraction() * 100).roundToInt())
     ).joinToString(", ")
