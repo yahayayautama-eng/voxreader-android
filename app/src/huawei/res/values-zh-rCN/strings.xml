@@ -1,3 +1,4 @@
 <resources>
     <string name="about_privacy_body">文档、相机文字识别、阅读进度、书签、高亮和收听记录都只保存在本设备上。语音在本机生成，不会向任何地方发送文字。</string>
+    <string name="privacy_sdk_list">本应用使用的第三方组件：Google ML Kit 文字识别（在设备本地运行，用于识别扫描页面，不发送任何数据）、sherpa-onnx（在设备本地运行，用于朗读文本，不发送任何数据）和华为应用内支付服务（仅在您购买或恢复 Vox Pro 时使用，购买经由 HMS Core 发送至华为）。点击“同意”继续使用。</string>
 </resources>

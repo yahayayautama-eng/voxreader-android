@@ -1,3 +1,4 @@
 <resources>
     <string name="about_privacy_body">文件、相機文字識別、閱讀進度、書籤、標示和收聽記錄都只儲存在本裝置上。語音在本機生成，不會向任何地方發送文字。</string>
+    <string name="privacy_sdk_list">本應用使用的第三方組件：Google ML Kit 文字識別（在裝置本地執行，用於識別掃描頁面，不發送任何資料）、sherpa-onnx（在裝置本地執行，用於朗讀文字，不發送任何資料）和華為應用內支付服務（僅在您購買或恢復 Vox Pro 時使用，購買經由 HMS Core 傳送至華為）。點選「同意」繼續使用。</string>
 </resources>

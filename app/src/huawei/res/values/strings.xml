@@ -1,4 +1,6 @@
 <resources>
     <!-- This build has no online voice, so nothing is ever sent off the device. -->
     <string name="about_privacy_body">Documents, camera OCR, reading progress, bookmarks, highlights, and listening history stay on this device. Speech is generated on the device, and no text is sent anywhere.</string>
+    <!-- Huawei build: also lists HMS In-App Purchases, which the Pro unlock uses. -->
+    <string name="privacy_sdk_list">Third-party components in this app: Google ML Kit text recognition (runs on the device to read scanned pages, sends no data), sherpa-onnx (runs on the device to speak text, sends no data) and HUAWEI In-App Purchases (used only when you buy or restore Vox Pro; the purchase goes through HMS Core to Huawei). Tap Agree to continue.</string>
 </resources>
